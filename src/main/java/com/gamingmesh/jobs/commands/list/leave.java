@@ -8,6 +8,7 @@ import com.gamingmesh.jobs.commands.Cmd;
 import com.gamingmesh.jobs.commands.JobCommand;
 import com.gamingmesh.jobs.container.Job;
 import com.gamingmesh.jobs.container.JobsPlayer;
+import com.gamingmesh.jobs.stuff.Util;
 
 public class leave implements Cmd {
 
@@ -23,20 +24,38 @@ public class leave implements Cmd {
 	}
 
 	Player pSender = (Player) sender;
-	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(pSender);
 
 	String jobName = args[0];
 	Job job = Jobs.getJob(jobName);
 	if (job == null) {
-	    sender.sendMessage(Jobs.getLanguage().getMessage("general.error.job"));
+	    pSender.sendMessage(Jobs.getLanguage().getMessage("general.error.job"));
 	    return true;
 	}
 
-	if (Jobs.getPlayerManager().leaveJob(jPlayer, job)) {
-	    sender.sendMessage(Jobs.getLanguage().getMessage("command.leave.success", "%jobname%", job.getChatColor() + job.getName()));
-	} else
-	    sender.sendMessage(Jobs.getLanguage().getMessage("general.error.job"));
-	return true;
+	if (Jobs.getGCManager().EnableConfirmation) {
+	    String uuid = pSender.getUniqueId().toString();
 
+	    if (!Util.confirmLeave.contains(uuid)) {
+		Util.confirmLeave.add(uuid);
+
+		plugin.getServer().getScheduler().runTaskLater(plugin, () -> Util.confirmLeave.remove(uuid),
+		    20 * Jobs.getGCManager().ConfirmExpiryTime);
+
+		pSender.sendMessage(Jobs.getLanguage().getMessage("command.leave.confirmationNeed", "[jobname]", jobName,
+			"[time]", Jobs.getGCManager().ConfirmExpiryTime));
+		return true;
+	    }
+
+	    Util.confirmLeave.remove(uuid);
+	}
+
+	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(pSender);
+
+	if (Jobs.getPlayerManager().leaveJob(jPlayer, job))
+	    pSender.sendMessage(Jobs.getLanguage().getMessage("command.leave.success", "%jobname%", job.getChatColor() + job.getName()));
+	else
+	    pSender.sendMessage(Jobs.getLanguage().getMessage("general.error.job"));
+
+	return true;
     }
 }

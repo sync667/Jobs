@@ -33,7 +33,7 @@ public class editpoints implements Cmd {
 	    return true;
 	}
 
-	PlayerPoints pointInfo = Jobs.getPlayerManager().getPointsData().getPlayerPointsInfo(jPlayer.getPlayerUUID());
+	PlayerPoints pointInfo = Jobs.getPointsData().getPlayerPointsInfo(jPlayer.getPlayerUUID());
 
 	if (pointInfo == null) {
 	    sender.sendMessage(Jobs.getLanguage().getMessage("general.error.noinfoByPlayer", "%playername%", jPlayer.getUserName()));
@@ -60,6 +60,8 @@ public class editpoints implements Cmd {
 	    sender.sendMessage(Jobs.getLanguage().getMessage("command.editpoints.output.set",
 		"%playername%", jPlayer.getUserName(),
 		"%amount%", amount));
+	    break;
+	default:
 	    break;
 	}
 	return true;

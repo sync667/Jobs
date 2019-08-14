@@ -18,21 +18,37 @@
 
 package com.gamingmesh.jobs.container;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map.Entry;
+
+import org.bukkit.ChatColor;
 import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+
+import com.gamingmesh.jobs.CMILib.ItemManager.CMIMaterial;
 
 public class JobLimitedItems {
     private String node;
+    @Deprecated
     private int id;
+    @Deprecated
+    private int data;
+    CMIMaterial mat;
+    private int amount;
     private String name;
     private List<String> lore;
     private HashMap<Enchantment, Integer> enchants;
     private int level;
 
-    public JobLimitedItems(String node, int id, String name, List<String> lore, HashMap<Enchantment, Integer> enchants, int level) {
+    public JobLimitedItems(String node, int id, int data, int amount, String name, List<String> lore, HashMap<Enchantment, Integer> enchants, int level) {
 	this.node = node;
 	this.id = id;
+	this.data = data;
+	this.amount = amount;
 	this.name = name;
 	this.lore = lore;
 	this.enchants = enchants;
@@ -43,8 +59,40 @@ public class JobLimitedItems {
 	return node;
     }
 
+    public ItemStack getItemStack(Player player) {
+	try {
+	    mat = CMIMaterial.get(id, data);
+	    ItemStack item = mat.newItemStack();
+	    item.setAmount(amount);
+	    ItemMeta meta = item.getItemMeta();
+	    if (this.name != null)
+		meta.setDisplayName(ChatColor.translateAlternateColorCodes('&', name));
+	    if (lore != null && !lore.isEmpty()) {
+		List<String> TranslatedLore = new ArrayList<>();
+		for (String oneLore : lore) {
+		    TranslatedLore.add(ChatColor.translateAlternateColorCodes('&', oneLore.replace("[player]", player.getName())));
+		}
+		meta.setLore(TranslatedLore);
+	    }
+	    if (enchants != null)
+		for (Entry<Enchantment, Integer> OneEnchant : enchants.entrySet()) {
+		    meta.addEnchant(OneEnchant.getKey(), OneEnchant.getValue(), true);
+		}
+	    item.setItemMeta(meta);
+
+	    return item;
+	} catch (Throwable e) {
+	}
+	return null;
+    }
+
+    @Deprecated
     public int getId() {
 	return id;
+    }
+    
+    public CMIMaterial getType(){
+	return mat;
     }
 
     public String getName() {

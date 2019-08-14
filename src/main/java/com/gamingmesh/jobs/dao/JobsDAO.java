@@ -374,6 +374,9 @@ public abstract class JobsDAO {
     public final synchronized void setUp() throws SQLException {
 	setupConfig();
 
+	if (getConnection() == null)
+	    return;
+
 	try {
 	    for (DBTables one : DBTables.values()) {
 		createDefaultTable(one);
@@ -403,7 +406,7 @@ public abstract class JobsDAO {
 
     public boolean isConnected() {
 	try {
-	    return pool.getConnection() != null;
+	    return pool != null && pool.getConnection() != null && !pool.getConnection().isClosed();
 	} catch (SQLException e) {
 	    return false;
 	}
@@ -857,7 +860,6 @@ public abstract class JobsDAO {
 	    }
 	    prest.executeBatch();
 	    conn.commit();
-	    conn.setAutoCommit(true);
 	} catch (Exception e) {
 	    e.printStackTrace();
 	} finally {
@@ -1031,8 +1033,8 @@ public abstract class JobsDAO {
 	int i = list.size();
 	try {
 	    statement = conns.createStatement();
-	    if (Jobs.getDBManager().getDbType().toString().equalsIgnoreCase("sqlite")) {
-		statement.executeUpdate("TRUNCATE `" + getPrefix() + table + "`");
+	    if (Jobs.getDBManager().getDbType().toString().equalsIgnoreCase("mysql")) {
+		statement.executeUpdate("TRUNCATE TABLE `" + getPrefix() + table + "`");
 	    } else {
 		statement.executeUpdate("DELETE from `" + getPrefix() + table + "`");
 	    }
@@ -1130,8 +1132,8 @@ public abstract class JobsDAO {
     }
 
     /**
-     * Get all jobs from archive by player
-     * @param player - targeted player
+     * Get player list by total job level
+     * @param start - starting entry
      * @return info - information about jobs
      */
     public List<TopList> getGlobalTopList(int start) {
@@ -1157,7 +1159,48 @@ public abstract class JobsDAO {
 		    continue;
 		TopList top = new TopList(info, res.getInt("totallvl"), 0);
 		names.add(top);
-		if (names.size() >= 15)
+		if (names.size() >= Jobs.getGCManager().JobsTopAmount)
+		    break;
+	    }
+	} catch (SQLException e) {
+	    e.printStackTrace();
+	} finally {
+	    close(res);
+	    close(prest);
+	}
+	return names;
+    }
+
+    /**
+     * Get players by quests done
+     * @param start - starting entry
+     * @param size - max count of entries
+     * @return info - information about jobs
+     */
+    public List<TopList> getQuestTopList(int start) {
+	JobsConnection conn = getConnection();
+
+	List<TopList> names = new ArrayList<>();
+
+	if (conn == null)
+	    return names;
+	PreparedStatement prest = null;
+	ResultSet res = null;
+	try {
+	    prest = conn.prepareStatement("SELECT `id`, `player_uuid`, `donequests` FROM `" + prefix
+		+ "users` ORDER BY `donequests` DESC, LOWER(seen) DESC LIMIT " + start + ", " + (start + Jobs.getGCManager().JobsTopAmount + 1) + ";");
+
+	    res = prest.executeQuery();
+
+	    while (res.next()) {
+		PlayerInfo info = Jobs.getPlayerManager().getPlayerInfo(res.getInt("id"));
+		if (info == null)
+		    continue;
+		if (info.getName() == null)
+		    continue;
+		TopList top = new TopList(info, res.getInt("donequests"), 0);
+		names.add(top);
+		if (names.size() >= Jobs.getGCManager().JobsTopAmount)
 		    break;
 	    }
 	} catch (SQLException e) {
@@ -1185,7 +1228,8 @@ public abstract class JobsDAO {
 		    res.getString("username"),
 		    res.getInt("id"), uuid,
 		    res.getLong("seen"),
-		    res.getInt("donequests"));
+		    res.getInt("donequests"),
+		    res.getString("quests"));
 		Jobs.getPlayerManager().addPlayerToMap(pInfo);
 	    }
 	} catch (SQLException e) {
@@ -1216,7 +1260,8 @@ public abstract class JobsDAO {
 			res.getInt("id"),
 			UUID.fromString(res.getString("player_uuid")),
 			seen,
-			res.getInt("donequests")));
+			res.getInt("donequests"),
+			res.getString("quests")));
 		} catch (Exception e) {
 		}
 	    }
@@ -1231,8 +1276,9 @@ public abstract class JobsDAO {
 
     public JobsPlayer loadFromDao(OfflinePlayer player) {
 
-	JobsPlayer jPlayer = new JobsPlayer(player.getName(), player);
-	jPlayer.playerUUID = player.getUniqueId();
+	JobsPlayer jPlayer = new JobsPlayer(player.getName());
+	jPlayer.setPlayerUUID(player.getUniqueId());
+
 	List<JobsDAOData> list = getAllJobs(player);
 //	synchronized (jPlayer.saveLock) {
 	jPlayer.progression.clear();
@@ -1250,45 +1296,45 @@ public abstract class JobsDAO {
 	    // calculate the max level
 	    // add the progression level.
 	    jPlayer.progression.add(jobProgression);
-
 	}
 	jPlayer.reloadMaxExperience();
 	jPlayer.reloadLimits();
 	jPlayer.setUserId(Jobs.getPlayerManager().getPlayerId(player.getUniqueId()));
-	Jobs.getJobsDAO().loadPoints(jPlayer);
+	loadPoints(jPlayer);
 //	}
 	return jPlayer;
     }
 
-    public void loadAllData() {
-	Jobs.getPlayerManager().clearMaps();
-	JobsConnection conn = getConnection();
-	if (conn == null)
-	    return;
-	PreparedStatement prest = null;
-	ResultSet res = null;
-	try {
-	    prest = conn.prepareStatement("SELECT *  FROM `" + prefix + "users`;");
-	    res = prest.executeQuery();
-	    while (res.next()) {
-		try {
-		    Jobs.getPlayerManager().addPlayerToMap(new PlayerInfo(
-			res.getString("username"),
-			res.getInt("id"),
-			UUID.fromString(res.getString("player_uuid")),
-			res.getLong("seen"),
-			res.getInt("donequests")));
-		} catch (Exception e) {
-		}
-	    }
-	} catch (SQLException e) {
-	    e.printStackTrace();
-	} finally {
-	    close(res);
-	    close(prest);
-	}
-	return;
-    }
+//    public void loadAllData() {
+//	Jobs.getPlayerManager().clearMaps();
+//	JobsConnection conn = getConnection();
+//	if (conn == null)
+//	    return;
+//	PreparedStatement prest = null;
+//	ResultSet res = null;
+//	try {
+//	    prest = conn.prepareStatement("SELECT *  FROM `" + prefix + "users`;");
+//	    res = prest.executeQuery();
+//	    while (res.next()) {
+//		try {
+//		    Jobs.getPlayerManager().addPlayerToMap(new PlayerInfo(
+//			res.getString("username"),
+//			res.getInt("id"),
+//			UUID.fromString(res.getString("player_uuid")),
+//			res.getLong("seen"),
+//			res.getInt("donequests"),
+//			res.getString("quests")));
+//		} catch (Exception e) {
+//		}
+//	    }
+//	} catch (SQLException e) {
+//	    e.printStackTrace();
+//	} finally {
+//	    close(res);
+//	    close(prest);
+//	}
+//	return;
+//    }
 
     /**
      * Delete job from archive
@@ -1339,20 +1385,24 @@ public abstract class JobsDAO {
     }
 
     public void updateSeen(JobsPlayer player) {
+
 	if (player.getUserId() == -1) {
 	    insertPlayer(player);
 	    return;
 	}
+
 	JobsConnection conn = getConnection();
 	if (conn == null)
 	    return;
+
 	PreparedStatement prest = null;
 	try {
-	    prest = conn.prepareStatement("UPDATE `" + prefix + "users` SET `seen` = ?, `username` = ?, `donequests` = ? WHERE `id` = ?;");
+	    prest = conn.prepareStatement("UPDATE `" + prefix + "users` SET `seen` = ?, `username` = ?, `donequests` = ?, `quests` = ? WHERE `id` = ?;");
 	    prest.setLong(1, System.currentTimeMillis());
 	    prest.setString(2, player.getUserName());
 	    prest.setInt(3, player.getDoneQuests());
-	    prest.setInt(4, player.getUserId());
+	    prest.setString(4, player.getQuestProgressionString());
+	    prest.setInt(5, player.getUserId());
 	    prest.execute();
 	} catch (SQLException e) {
 	    e.printStackTrace();
@@ -1381,7 +1431,7 @@ public abstract class JobsDAO {
 	PreparedStatement prest = null;
 	ResultSet res = null;
 	try {
-	    prest = conn.prepareStatement("SELECT `id` FROM `" + prefix + "users` WHERE `player_uuid` = ?;");
+	    prest = conn.prepareStatement("SELECT `id`,`donequests` FROM `" + prefix + "users` WHERE `player_uuid` = ?;");
 	    prest.setString(1, player.getPlayerUUID().toString());
 	    res = prest.executeQuery();
 	    res.next();
@@ -1418,7 +1468,7 @@ public abstract class JobsDAO {
 
 	PreparedStatement prest = null;
 	try {
-	    PlayerPoints pointInfo = Jobs.getPlayerManager().getPointsData().getPlayerPointsInfo(jPlayer.getPlayerUUID());
+	    PlayerPoints pointInfo = Jobs.getPointsData().getPlayerPointsInfo(jPlayer.getPlayerUUID());
 	    prest = conn.prepareStatement("INSERT INTO `" + prefix + "points` (`totalpoints`, `currentpoints`, `userid`) VALUES (?, ?, ?);");
 	    prest.setDouble(1, pointInfo.getTotalPoints());
 	    prest.setDouble(2, pointInfo.getCurrentPoints());
@@ -1443,9 +1493,9 @@ public abstract class JobsDAO {
 	    res = prest.executeQuery();
 
 	    if (res.next()) {
-		Jobs.getPlayerManager().getPointsData().addPlayer(player.getPlayerUUID(), res.getDouble("currentpoints"), res.getDouble("totalpoints"));
+		Jobs.getPointsData().addPlayer(player.getPlayerUUID(), res.getDouble("currentpoints"), res.getDouble("totalpoints"));
 	    } else {
-		Jobs.getPlayerManager().getPointsData().addPlayer(player.getPlayerUUID());
+		Jobs.getPointsData().addPlayer(player.getPlayerUUID());
 	    }
 	} catch (SQLException e) {
 	    e.printStackTrace();
@@ -1756,9 +1806,7 @@ public abstract class JobsDAO {
 
     /**
      * Save player-explore information
-     * @param jobexplore - the information getting saved
      */
-
     public void saveExplore() {
 	insertExplore();
 	updateExplore();
@@ -1948,6 +1996,15 @@ public abstract class JobsDAO {
      * @param toplist - toplist by jobs name
      * @return 
      */
+    public ArrayList<TopList> toplist(String jobsname) {
+	return toplist(jobsname, 0);
+    }
+
+    /**
+     * Show top list
+     * @param toplist - toplist by jobs name
+     * @return 
+     */
     public ArrayList<TopList> toplist(String jobsname, int limit) {
 	ArrayList<TopList> jobs = new ArrayList<>();
 	JobsConnection conn = getConnection();
@@ -1957,7 +2014,7 @@ public abstract class JobsDAO {
 	ResultSet res = null;
 	try {
 	    prest = conn.prepareStatement("SELECT `userid`, `level`, `experience` FROM `" + prefix
-		+ "jobs` WHERE `job` LIKE ? ORDER BY `level` DESC, LOWER(experience) DESC LIMIT " + limit + ", 15;");
+		+ "jobs` WHERE `job` LIKE ? ORDER BY `level` DESC, LOWER(experience) DESC LIMIT " + limit + ", 50;");
 	    prest.setString(1, jobsname);
 	    res = prest.executeQuery();
 
@@ -1969,21 +2026,7 @@ public abstract class JobsDAO {
 
 		if (info.getName() == null)
 		    continue;
-
-		String name = info.getName();
-		Player player = Bukkit.getPlayer(name);
-		if (player != null) {
-
-		    JobsPlayer jobsinfo = Jobs.getPlayerManager().getJobsPlayer(player);
-		    Job job = Jobs.getJob(jobsname);
-		    if (job != null && jobsinfo != null) {
-			JobProgression prog = jobsinfo.getJobProgression(job);
-			if (prog != null)
-			    jobs.add(new TopList(info, prog.getLevel(), (int) prog.getExperience()));
-		    }
-		} else {
-		    jobs.add(new TopList(info, res.getInt("level"), res.getInt("experience")));
-		}
+		jobs.add(new TopList(info, res.getInt("level"), res.getInt("experience")));
 	    }
 	} catch (SQLException e) {
 	    e.printStackTrace();
@@ -2045,7 +2088,7 @@ public abstract class JobsDAO {
      */
     protected JobsConnection getConnection() {
 	try {
-	    return pool.getConnection();
+	    return isConnected() ? pool.getConnection() : null;
 	} catch (SQLException e) {
 	    Jobs.getPluginLogger().severe("Unable to connect to the database: " + e.getMessage());
 	    return null;

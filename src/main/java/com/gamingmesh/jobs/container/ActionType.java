@@ -20,6 +20,7 @@ package com.gamingmesh.jobs.container;
 
 public enum ActionType {
     BREAK("Break"),
+    STRIPLOGS("StripLogs"),
     DRINK("Drink"),
     TNTBREAK("TNTBreak"),
     PLACE("Place"),
@@ -39,7 +40,8 @@ public enum ActionType {
     MILK("Milk"),
     EXPLORE("Explore"),
     EAT("Eat"),
-    CUSTOMKILL("custom-kill");
+    CUSTOMKILL("custom-kill"),
+    COLLECT("Collect");
 
     private String name;
 

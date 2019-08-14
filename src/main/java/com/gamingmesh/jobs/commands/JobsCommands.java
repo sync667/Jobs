@@ -20,7 +20,6 @@ import java.util.Map.Entry;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
-import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -36,6 +35,7 @@ import com.gamingmesh.jobs.container.Job;
 import com.gamingmesh.jobs.container.JobInfo;
 import com.gamingmesh.jobs.container.JobProgression;
 import com.gamingmesh.jobs.container.JobsPlayer;
+import com.gamingmesh.jobs.container.Title;
 import com.gamingmesh.jobs.stuff.PageInfo;
 
 public class JobsCommands implements CommandExecutor {
@@ -93,9 +93,8 @@ public class JobsCommands implements CommandExecutor {
 		RawMessage rm = new RawMessage();
 		rm.add(Jobs.getLanguage().getMessage("general.error.permission"), "&2" + label + ".command." + cmd);
 		rm.show(sender);
-		Jobs.sendMessage(Bukkit.getServer().getConsoleSender(), Jobs.getLanguage().getMessage("general.error.permission"));
 	    } else
-		Jobs.sendMessage(sender, Jobs.getLanguage().getMessage("general.error.permission"));
+		sender.sendMessage(Jobs.getLanguage().getMessage("general.error.permission"));
 	    return true;
 	}
 
@@ -130,9 +129,8 @@ public class JobsCommands implements CommandExecutor {
 	String key = "command." + cmd + ".help.args";
 	if (Jobs.getLanguage().containsKey(key) && !Jobs.getLanguage().getMessage(key).isEmpty()) {
 	    cmdString = cmdString.replace("[arguments]", " " + Jobs.getLanguage().getMessage(key));
-	} else {
+	} else
 	    cmdString = cmdString.replace("[arguments]", "");
-	}
 	return cmdString;
     }
 
@@ -147,7 +145,7 @@ public class JobsCommands implements CommandExecutor {
 
 	Map<String, Integer> commands = GetCommands(sender);
 
-	if (commands.size() == 0) {
+	if (commands.isEmpty()) {
 	    sender.sendMessage(Jobs.getLanguage().getMessage("general.error.permission"));
 	    return true;
 	}
@@ -210,12 +208,12 @@ public class JobsCommands implements CommandExecutor {
 		    listOfCommands.add(name);
 		}
 	    }
-	} catch (Exception e) {
+	} catch (Throwable e) {
 	} finally {
 	    if (jarFile != null)
 		try {
 		    jarFile.close();
-		} catch (Exception e) {
+		} catch (Throwable e) {
 		}
 	}
 	return listOfCommands;
@@ -301,14 +299,10 @@ public class JobsCommands implements CommandExecutor {
     /**
      * Check Job joining permission
      */
-    public boolean hasJobPermission(Player sender, Job job) {
-	return hasJobPermission((CommandSender) sender, job);
-    }
-
     public boolean hasJobPermission(CommandSender sender, Job job) {
-	if (!sender.hasPermission("jobs.use")) {
+	if (!sender.hasPermission("jobs.use"))
 	    return false;
-	}
+
 	return sender.hasPermission("jobs.join." + job.getName().toLowerCase());
     }
 
@@ -341,9 +335,8 @@ public class JobsCommands implements CommandExecutor {
 
 	if (type == null) {
 	    type = "";
-	} else {
+	} else
 	    type = type.toLowerCase();
-	}
 
 	List<String> message = new ArrayList<>();
 
@@ -366,11 +359,10 @@ public class JobsCommands implements CommandExecutor {
 
 	if (Jobs.getGCManager().useDynamicPayment) {
 	    if ((int) (job.getBonus() * 100) / 100.0 != 0) {
-		if ((int) (job.getBonus() * 100) / 100.0 < 0) {
+		if ((int) (job.getBonus() * 100) / 100.0 < 0)
 		    message.add(Jobs.getLanguage().getMessage("command.info.help.penalty", "[penalty]", (int) (job.getBonus() * 100) / 100.0 * -1));
-		} else {
+		else
 		    message.add(Jobs.getLanguage().getMessage("command.info.help.bonus", "[bonus]", (int) (job.getBonus() * 100) / 100.0));
-		}
 	    }
 	}
 
@@ -426,7 +418,7 @@ public class JobsCommands implements CommandExecutor {
     public static String jobInfoMessage(JobsPlayer player, Job job, ActionType type) {
 
 	// money exp boost
-	Boost boost = Jobs.getPlayerManager().getFinalBonus(player, job);
+	Boost boost = Jobs.getPlayerManager().getFinalBonus(player, job, true);
 
 	StringBuilder message = new StringBuilder();
 
@@ -497,11 +489,17 @@ public class JobsCommands implements CommandExecutor {
      * @return the message
      */
     public String jobStatsMessage(JobProgression jobProg) {
+	Title t = null;
+	for (Title title : new ArrayList<Title>()) {
+	    if (t == null)
+		t = title;
+	}
 	String message = Jobs.getLanguage().getMessage("command.stats.output",
 	    "%joblevel%", jobProg.getLevel(),
 	    "%jobname%", jobProg.getJob().getChatColor() + jobProg.getJob().getName(),
 	    "%jobxp%", Math.round(jobProg.getExperience() * 100.0) / 100.0,
-	    "%jobmaxxp%", jobProg.getMaxExperience());
+	    "%jobmaxxp%", jobProg.getMaxExperience(),
+	    "%titlename%", t == null ? "" : t.getName());
 	return " " + jobProgressMessage(jobProg.getMaxExperience(), jobProg.getExperience()) + " " + message;
     }
 

@@ -13,6 +13,8 @@ import org.bukkit.inventory.ItemStack;
 import com.gamingmesh.jobs.Jobs;
 import com.gamingmesh.jobs.CMILib.ItemManager.CMIEntityType;
 import com.gamingmesh.jobs.CMILib.ItemManager.CMIMaterial;
+import com.gamingmesh.jobs.CMILib.ItemManager.CMIPotionType;
+import com.gamingmesh.jobs.CMILib.ItemReflection;
 import com.gamingmesh.jobs.commands.Cmd;
 import com.gamingmesh.jobs.commands.JobCommand;
 import com.gamingmesh.jobs.container.ActionType;
@@ -72,11 +74,10 @@ public class editjobs implements Cmd {
 	    }
 
 	    if (args.length == 4) {
-
 		Integer page = null;
 		try {
 		    page = Integer.parseInt(args[3]);
-		} catch (Exception e) {
+		} catch (Throwable e) {
 		}
 
 		if (page != null) {
@@ -92,7 +93,6 @@ public class editjobs implements Cmd {
 		    showPath(player, job, actionT, null);
 		    PageInfo pi = new PageInfo(15, action.size(), page);
 		    for (JobInfo one : action) {
-
 			if (!pi.isEntryOk())
 			    continue;
 
@@ -169,9 +169,7 @@ public class editjobs implements Cmd {
 	    }
 	    break;
 	case "modify":
-
 	    if (args.length == 5) {
-
 		Job job = Jobs.getJob(args[1]);
 
 		if (job == null)
@@ -212,7 +210,6 @@ public class editjobs implements Cmd {
 	    }
 
 	    if (args.length == 6) {
-
 		Job job = Jobs.getJob(args[1]);
 
 		if (job == null)
@@ -249,7 +246,7 @@ public class editjobs implements Cmd {
 
 		try {
 		    value = Double.parseDouble(args[5]);
-		} catch (Exception e) {
+		} catch (Throwable e) {
 		    return false;
 		}
 
@@ -284,7 +281,6 @@ public class editjobs implements Cmd {
 	    // remove miner break stone:1
 
 	    if (args.length == 4) {
-
 		Job job = Jobs.getJob(args[1]);
 
 		if (job == null)
@@ -327,7 +323,6 @@ public class editjobs implements Cmd {
 	    // add miner break stone:1
 
 	    if (args.length == 3) {
-
 		Job job = Jobs.getJob(args[1]);
 
 		if (job == null)
@@ -358,7 +353,6 @@ public class editjobs implements Cmd {
 	    }
 
 	    if (args.length == 4) {
-
 		Job job = Jobs.getJob(args[1]);
 
 		if (job == null)
@@ -380,10 +374,16 @@ public class editjobs implements Cmd {
 		    ItemStack item = Jobs.getNms().getItemInMainHand(player);
 		    key = item.getType().name() + "-" + item.getData().getData();
 		    break;
+		case "offhand":
+		    item = ItemReflection.getItemInOffHand(player);
+		    key = item.getType().name() + "-" + item.getData().getData();
+		    break;
 		case "looking":
 		case "lookingat":
 		    Block block = Util.getTargetBlock(player, 30);
 		    key = block.getType().name() + "-" + block.getData();
+		    break;
+		default:
 		    break;
 		}
 
@@ -410,6 +410,7 @@ public class editjobs implements Cmd {
 		case SHEAR:
 		case EXPLORE:
 		case CUSTOMKILL:
+		case DRINK:
 		    break;
 		case TNTBREAK:
 		case VTRADE:
@@ -420,10 +421,10 @@ public class editjobs implements Cmd {
 		case FISH:
 		case ENCHANT:
 		case DYE:
-		case DRINK:
 		case CRAFT:
 		case BREW:
 		case BREAK:
+		case STRIPLOGS:
 		    material = CMIMaterial.get(myKey + (subType));
 
 		    if (material == null)
@@ -450,55 +451,53 @@ public class editjobs implements Cmd {
 
 		}
 
-		c: if (material != null) {
+		c: if (material != null && material.getMaterial() != null) {
 
 		    // Need to include thos ones and count as regular blocks
 		    switch (key.replace("_", "").toLowerCase()) {
 		    case "itemframe":
 			type = "ITEM_FRAME";
-			id = 18;
 			meta = "1";
 			break c;
 		    case "painting":
 			type = "PAINTING";
-			id = 9;
 			meta = "1";
 			break c;
 		    case "armorstand":
 			type = "ARMOR_STAND";
-			id = 30;
 			meta = "1";
 			break c;
+		    default:
+			break;
 		    }
 
-		    if (actionT == ActionType.BREAK || actionT == ActionType.PLACE) {
+		    if (actionT == ActionType.BREAK || actionT == ActionType.PLACE || actionT == ActionType.STRIPLOGS) {
 			if (!material.isBlock()) {
-			    player.sendMessage(ChatColor.GOLD + "Job " + job.getName() + " has an invalid " + actionT.getName() + " type property: " + key
-				+ "! Material must be a block!");
+			    player.sendMessage(ChatColor.GOLD + "Job " + job.getName() + " has an invalid " + actionT.getName() + " type property: " + material
+			+ "(" + key + ")! Material must be a block!");
 			    break;
 			}
 		    }
 		    if (material == CMIMaterial.REDSTONE_ORE && actionT == ActionType.BREAK && Version.isCurrentLower(Version.v1_13_R1)) {
 			player.sendMessage(ChatColor.GOLD + "Job " + job.getName() + " is using REDSTONE_ORE instead of GLOWING_REDSTONE_ORE.");
-			player.sendMessage(ChatColor.GOLD + "Automatically changing block to GLOWING_REDSTONE_ORE.  Please update your configuration.");
+			player.sendMessage(ChatColor.GOLD + "Automatically changing block to GLOWING_REDSTONE_ORE. Please update your configuration.");
 			player.sendMessage(ChatColor.GOLD + "In vanilla minecraft, REDSTONE_ORE changes to GLOWING_REDSTONE_ORE when interacted with.");
 			player.sendMessage(ChatColor.GOLD + "In the future, Jobs using REDSTONE_ORE instead of GLOWING_REDSTONE_ORE may fail to work correctly.");
-			material = CMIMaterial.LEGACY_GLOWING_REDSTON_ORE;
-		    } else if (material == CMIMaterial.LEGACY_GLOWING_REDSTON_ORE && actionT == ActionType.BREAK && Version.isCurrentEqualOrHigher(Version.v1_13_R1)) {
+			material = CMIMaterial.LEGACY_GLOWING_REDSTONE_ORE;
+		    } else if (material == CMIMaterial.LEGACY_GLOWING_REDSTONE_ORE && actionT == ActionType.BREAK && Version.isCurrentEqualOrHigher(Version.v1_13_R1)) {
 			player.sendMessage(ChatColor.GOLD + "Job " + job.getName() + " is using GLOWING_REDSTONE_ORE instead of REDSTONE_ORE.");
-			player.sendMessage(ChatColor.GOLD + "Automatically changing block to REDSTONE_ORE.  Please update your configuration.");
+			player.sendMessage(ChatColor.GOLD + "Automatically changing block to REDSTONE_ORE. Please update your configuration.");
 			material = CMIMaterial.REDSTONE_ORE;
 		    }
-
-		    type = material.toString();
 		    id = material.getId();
+		    type = material.toString();
 		} else if (actionT == ActionType.KILL || actionT == ActionType.TAME || actionT == ActionType.BREED || actionT == ActionType.MILK) {
 
 		    // check entities
-		    EntityType entity = EntityType.fromName(key);
+		    EntityType entity = EntityType.fromName(myKey.toUpperCase());
 		    if (entity == null) {
 			try {
-			    entity = EntityType.valueOf(key.toUpperCase());
+			    entity = EntityType.valueOf(myKey.toUpperCase());
 			} catch (IllegalArgumentException e) {
 			}
 		    }
@@ -509,9 +508,10 @@ public class editjobs implements Cmd {
 
 			// using breeder finder
 			if (actionT == ActionType.BREED)
-			    Jobs.getGCManager().setBreederFinder(true);
+			    Jobs.getGCManager().useBreederFinder = true;
 		    }
 
+		    if (entity == null) {
 		    switch (key.toLowerCase()) {
 		    case "skeletonwither":
 			type = CMIEntityType.WITHER_SKELETON.name();
@@ -548,6 +548,12 @@ public class editjobs implements Cmd {
 			id = 68;
 			meta = "1";
 			break;
+		    default:
+			type = CMIEntityType.getByName(myKey.toUpperCase()).name();
+			id = CMIEntityType.getByName(myKey.toUpperCase()).getId();
+			meta = "1";
+			break;
+		    }
 		    }
 
 		} else if (actionT == ActionType.ENCHANT) {
@@ -561,9 +567,9 @@ public class editjobs implements Cmd {
 			}
 		    }
 		    type = myKey;
-		} else if (actionT == ActionType.CUSTOMKILL || actionT == ActionType.SHEAR || actionT == ActionType.MMKILL) {
+		} else if (actionT == ActionType.CUSTOMKILL || actionT == ActionType.SHEAR || actionT == ActionType.MMKILL)
 		    type = myKey;
-		} else if (actionT == ActionType.EXPLORE) {
+		else if (actionT == ActionType.EXPLORE) {
 		    type = myKey;
 		    int amount = 10;
 		    try {
@@ -574,8 +580,15 @@ public class editjobs implements Cmd {
 		    }
 		    Jobs.getExplore().setExploreEnabled();
 		    Jobs.getExplore().setPlayerAmount(amount + 1);
-		} else if (actionT == ActionType.CRAFT && myKey.startsWith("!")) {
+		} else if (actionT == ActionType.CRAFT && myKey.startsWith("!"))
 		    type = myKey.substring(1, myKey.length());
+		else if (actionT == ActionType.DRINK) {
+		    type = myKey;
+		    CMIPotionType potion = CMIPotionType.getByName(myKey);
+			if (potion != null) {
+			    type = potion.toString();
+			    id = potion.getId();
+			}
 		}
 
 		if (type == null) {
@@ -614,6 +627,8 @@ public class editjobs implements Cmd {
 		return true;
 	    }
 
+	    break;
+	default:
 	    break;
 	}
 

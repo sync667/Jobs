@@ -5,6 +5,7 @@ import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import com.gamingmesh.jobs.Jobs;
+import com.gamingmesh.jobs.CMILib.VersionChecker.Version;
 import com.gamingmesh.jobs.commands.Cmd;
 import com.gamingmesh.jobs.commands.JobCommand;
 import com.gamingmesh.jobs.stuff.Util;
@@ -26,7 +27,6 @@ public class blockinfo implements Cmd {
 	}
 
 	Player player = (Player) sender;
-
 	Block block = Util.getTargetBlock(player, 15);
 
 	if (block == null || block.getState().getType() == Material.AIR)
@@ -36,10 +36,15 @@ public class blockinfo implements Cmd {
 
 	sender.sendMessage(Jobs.getLanguage().getMessage("general.info.separator"));
 	sender.sendMessage(Jobs.getLanguage().getMessage("command.blockinfo.output.name", "%blockname%", block.getType().name()));
-	sender.sendMessage(Jobs.getLanguage().getMessage("command.blockinfo.output.id", "%blockid%", block.getType().getId()));
+	if (Version.isCurrentEqualOrLower(Version.v1_13_R2))
+	    sender.sendMessage(Jobs.getLanguage().getMessage("command.blockinfo.output.id", "%blockid%", block.getType().getId()));
 	sender.sendMessage(Jobs.getLanguage().getMessage("command.blockinfo.output.data", "%blockdata%", getData(block)));
-	sender.sendMessage(Jobs.getLanguage().getMessage("command.blockinfo.output.usage", "%first%", block.getType().getId() + dataString,
-	    "%second%", block.getType().name() + dataString));
+	if (Version.isCurrentEqualOrHigher(Version.v1_14_R1))
+	    sender.sendMessage(Jobs.getLanguage().getMessage("command.blockinfo.output.usage", "%first%", "",
+		"%second%", block.getType().name() + dataString));
+	else
+	    sender.sendMessage(Jobs.getLanguage().getMessage("command.blockinfo.output.usage", "%first%", block.getType().getId() + dataString,
+		"%second%", block.getType().name() + dataString));
 	sender.sendMessage(Jobs.getLanguage().getMessage("general.info.separator"));
 
 	return true;

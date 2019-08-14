@@ -97,7 +97,7 @@ public class ActionBarTitleMessages {
 	    Object player = getHandle.invoke(receivingPacket);
 	    Object connection = playerConnection.get(player);
 	    sendPacket.invoke(connection, packet);
-	} catch (Exception ex) {
+	} catch (Throwable t) {
 //	    Bukkit.getLogger().log(Level.SEVERE, "Error {0}", ex);
 	}
 
@@ -105,7 +105,7 @@ public class ActionBarTitleMessages {
 	    Object player = getHandle.invoke(receivingPacket);
 	    Object connection = playerConnection.get(player);
 	    sendPacket.invoke(connection, packet);
-	} catch (Exception ex) {
+	} catch (Throwable t) {
 //	    Bukkit.getLogger().log(Level.SEVERE, "Error {0}", ex);
 	}
     }
@@ -115,69 +115,64 @@ public class ActionBarTitleMessages {
     }
 
     public static void sendTitle(final Player receivingPacket, final Object title, final Object subtitle, final int fadeIn, final int keep, final int fadeOut) {
-	Bukkit.getScheduler().runTaskAsynchronously(Jobs.getInstance(), new Runnable() {
-	    @SuppressWarnings("deprecation")
-		@Override
-	    public void run() {
+	Bukkit.getScheduler().runTaskAsynchronously(Jobs.getInstance(), () -> {
+	    String t = title == null ? null : CMIChatColor.translateAlternateColorCodes((String) title);
+	    String s = subtitle == null ? null : CMIChatColor.translateAlternateColorCodes((String) subtitle);
 
-		String t = title == null ? null : CMIChatColor.translateAlternateColorCodes((String) title);
-		String s = subtitle == null ? null : CMIChatColor.translateAlternateColorCodes((String) subtitle);
-
-		if (simpleTitleMessages) {
-		    receivingPacket.sendMessage(t);
-		    receivingPacket.sendMessage(s);
-		    return;
-		}
-		try {
-		    switch (Version.getCurrent()) {
-		    case v1_9_R1:
-		    case v1_9_R2:
-		    case v1_10_R1:
-		    case v1_11_R1:
-			receivingPacket.sendTitle(t, s);
-			break;
-		    case v1_12_R1:
-		    case v1_13_R1:
-		    case v1_13_R2:
-		    case v1_14_R1:
-		    case v1_14_R2:
-		    case v1_15_R1:
-		    case v1_15_R2:
-			receivingPacket.sendTitle(t, s, fadeIn, keep, fadeOut);
-			break;
-		    case v1_7_R1:
-		    case v1_7_R2:
-		    case v1_7_R3:
-		    case v1_7_R4:
-		    case v1_8_R1:
-		    case v1_8_R2:
-		    case v1_8_R3:
-			if (title != null) {
-			    Object packetTitle = nmsPacketPlayOutTitle.newInstance(enumTitleAction.getField("TITLE").get(null),
-				((Object[]) fromString.invoke(null, t))[0]);
-			    sendPacket(receivingPacket, packetTitle);
-			}
-			if (subtitle != null) {
-			    if (title == null) {
-				Object packetTitle = nmsPacketPlayOutTitle.newInstance(enumTitleAction.getField("TITLE").get(null), ((Object[]) fromString.invoke(null, ""))[0]);
-				sendPacket(receivingPacket, packetTitle);
-			    }
-			    Object packetSubtitle = nmsPacketPlayOutTitle.newInstance(enumTitleAction.getField("SUBTITLE").get(null),
-				((Object[]) fromString.invoke(null, s))[0]);
-			    sendPacket(receivingPacket, packetSubtitle);
-			}
-
-			break;
-		    default:
-			break;
-		    }
-
-		} catch (SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchFieldException ex) {
-		    simpleTitleMessages = true;
-		    Bukkit.getLogger().log(Level.SEVERE, "Your server can't fully support title messages. They will be shown in chat instead.");
-		}
+	    if (simpleTitleMessages) {
+		receivingPacket.sendMessage(t);
+		receivingPacket.sendMessage(s);
 		return;
 	    }
+	    try {
+		switch (Version.getCurrent()) {
+		case v1_9_R1:
+		case v1_9_R2:
+		case v1_10_R1:
+		case v1_11_R1:
+		    receivingPacket.sendTitle(t, s);
+		    break;
+		case v1_12_R1:
+		case v1_13_R1:
+		case v1_13_R2:
+		case v1_14_R1:
+		case v1_14_R2:
+		case v1_15_R1:
+		case v1_15_R2:
+		    receivingPacket.sendTitle(t, s, fadeIn, keep, fadeOut);
+		    break;
+		case v1_7_R1:
+		case v1_7_R2:
+		case v1_7_R3:
+		case v1_7_R4:
+		case v1_8_R1:
+		case v1_8_R2:
+		case v1_8_R3:
+		    if (title != null) {
+			Object packetTitle = nmsPacketPlayOutTitle.newInstance(enumTitleAction.getField("TITLE").get(null),
+			    ((Object[]) fromString.invoke(null, t))[0]);
+			sendPacket(receivingPacket, packetTitle);
+		    }
+		    if (subtitle != null) {
+			if (title == null) {
+			    Object packetTitle = nmsPacketPlayOutTitle.newInstance(enumTitleAction.getField("TITLE").get(null), ((Object[]) fromString.invoke(null, ""))[0]);
+			    sendPacket(receivingPacket, packetTitle);
+			}
+			Object packetSubtitle = nmsPacketPlayOutTitle.newInstance(enumTitleAction.getField("SUBTITLE").get(null),
+			    ((Object[]) fromString.invoke(null, s))[0]);
+			sendPacket(receivingPacket, packetSubtitle);
+		    }
+
+		    break;
+		default:
+		    break;
+		}
+
+	    } catch (SecurityException | InstantiationException | IllegalAccessException | IllegalArgumentException | InvocationTargetException | NoSuchFieldException ex) {
+		simpleTitleMessages = true;
+		Bukkit.getLogger().log(Level.SEVERE, "Your server can't fully support title messages. They will be shown in chat instead.");
+	    }
+	    return;
 	});
     }
 

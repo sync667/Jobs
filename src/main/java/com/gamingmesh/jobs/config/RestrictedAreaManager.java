@@ -22,12 +22,6 @@ public class RestrictedAreaManager {
 
     protected HashMap<String, RestrictedArea> restrictedAreas = new HashMap<>();
 
-    private Jobs plugin;
-
-    public RestrictedAreaManager(Jobs plugin) {
-	this.plugin = plugin;
-    }
-
     public boolean isExist(String name) {
 	for (Entry<String, RestrictedArea> area : restrictedAreas.entrySet()) {
 	    if (area.getKey().equalsIgnoreCase(name))
@@ -46,15 +40,27 @@ public class RestrictedAreaManager {
 	    save();
     }
 
-    public void remove(String name, boolean save) {
+    public void remove(String name) {
 	for (Entry<String, RestrictedArea> area : restrictedAreas.entrySet()) {
 	    if (area.getKey().equalsIgnoreCase(name)) {
 		restrictedAreas.remove(area.getKey());
 		break;
 	    }
 	}
-	if (save)
-	    save();
+	File f = new File(Jobs.getFolder(), "restrictedAreas.yml");
+	if (f.exists()) {
+	    YamlConfiguration conf = YamlConfiguration.loadConfiguration(f);
+	    conf.options().indent(2);
+	    conf.options().copyDefaults(true);
+	    StringBuilder header = new StringBuilder();
+	    header = addHeader(header);
+	    conf.set("restrictedareas." + name, null);
+	    try {
+		conf.save(f);
+	    } catch (IOException e) {
+		e.printStackTrace();
+	    }
+	}
     }
 
     public HashMap<String, RestrictedArea> getRestrictedAres() {
@@ -62,7 +68,7 @@ public class RestrictedAreaManager {
     }
 
     private void save() {
-	File f = new File(plugin.getDataFolder(), "restrictedAreas.yml");
+	File f = new File(Jobs.getFolder(), "restrictedAreas.yml");
 	YamlConfiguration conf = YamlConfiguration.loadConfiguration(f);
 	conf.options().indent(2);
 	conf.options().copyDefaults(true);
@@ -104,9 +110,8 @@ public class RestrictedAreaManager {
 	for (RestrictedArea area : getRestrictedAreasByLoc(player.getLocation())) {
 	    if (area.inRestrictedArea(player.getLocation()))
 		return area.getMultiplier();
-	    if (area.getWgName() != null && Jobs.getWorldGuardManager() != null && Jobs.getWorldGuardManager().inArea(player.getLocation(), area.getWgName())) {
+	    if (area.getWgName() != null && Jobs.getWorldGuardManager() != null && Jobs.getWorldGuardManager().inArea(player.getLocation(), area.getWgName()))
 		return area.getMultiplier();
-	    }
 
 	}
 	return 0D;
@@ -119,9 +124,8 @@ public class RestrictedAreaManager {
 		areas.add(area.getValue());
 	}
 
-	if (Jobs.getWorldGuardManager() != null) {
+	if (Jobs.getWorldGuardManager() != null)
 	    areas.addAll(Jobs.getWorldGuardManager().getArea(loc));
-	}
 
 	return areas;
     }
@@ -177,8 +181,8 @@ public class RestrictedAreaManager {
      * loads from Jobs/restrictedAreas.yml
      */
     public synchronized void load() {
-	this.restrictedAreas.clear();
-	File f = new File(plugin.getDataFolder(), "restrictedAreas.yml");
+	restrictedAreas.clear();
+	File f = new File(Jobs.getFolder(), "restrictedAreas.yml");
 	YamlConfiguration conf = YamlConfiguration.loadConfiguration(f);
 	conf.options().indent(2);
 	conf.options().copyDefaults(true);
@@ -190,28 +194,27 @@ public class RestrictedAreaManager {
 	ConfigurationSection areaSection = conf.getConfigurationSection("restrictedareas");
 	if (areaSection != null) {
 	    for (String areaKey : areaSection.getKeys(false)) {
-		double multiplier = conf.getDouble("restrictedareas." + areaKey + ".multiplier", 0.0);
+		double multiplier = conf.getDouble("restrictedareas." + areaKey + ".multiplier", 0d);
 
-		if (conf.isBoolean("restrictedareas." + areaKey + ".WG")) {
-		    RestrictedArea ar = new RestrictedArea(areaKey, areaKey, multiplier);
-		    addNew(ar);
-		} else {
+		if (conf.isBoolean("restrictedareas." + areaKey + ".WG"))
+		    addNew(new RestrictedArea(areaKey, areaKey, multiplier));
+		else {
 
 		    String worldName = conf.getString("restrictedareas." + areaKey + ".world");
 		    World world = Bukkit.getServer().getWorld(worldName);
 		    if (world == null)
 			continue;
-		    Location point1 = new Location(world, conf.getDouble("restrictedareas." + areaKey + ".point1.x", 0.0), conf.getDouble("restrictedareas." + areaKey
-			+ ".point1.y", 0.0), conf.getDouble("restrictedareas." + areaKey + ".point1.z", 0.0));
+		    Location point1 = new Location(world, conf.getDouble("restrictedareas." + areaKey + ".point1.x", 0d), conf.getDouble("restrictedareas." + areaKey
+			+ ".point1.y", 0d), conf.getDouble("restrictedareas." + areaKey + ".point1.z", 0d));
 
-		    Location point2 = new Location(world, conf.getDouble("restrictedareas." + areaKey + ".point2.x", 0.0), conf.getDouble("restrictedareas." + areaKey
-			+ ".point2.y", 0.0), conf.getDouble("restrictedareas." + areaKey + ".point2.z", 0.0));
+		    Location point2 = new Location(world, conf.getDouble("restrictedareas." + areaKey + ".point2.x", 0d), conf.getDouble("restrictedareas." + areaKey
+			+ ".point2.y", 0d), conf.getDouble("restrictedareas." + areaKey + ".point2.z", 0d));
 		    addNew(new RestrictedArea(areaKey, new CuboidArea(point1, point2), multiplier));
 		}
 	    }
 	}
 
-	if (restrictedAreas.size() != 0)
+	if (restrictedAreas.size() > 0)
 		Jobs.consoleMsg("&e[Jobs] Loaded " + restrictedAreas.size() + " restricted areas!");
 
 	try {

@@ -4,14 +4,27 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import com.gamingmesh.jobs.ItemBoostManager;
 import com.gamingmesh.jobs.Jobs;
 import com.gamingmesh.jobs.commands.Cmd;
 import com.gamingmesh.jobs.commands.JobCommand;
 import com.gamingmesh.jobs.container.Job;
 import com.gamingmesh.jobs.container.JobItems;
+import com.gamingmesh.jobs.container.JobLimitedItems;
 import com.gamingmesh.jobs.stuff.GiveItem;
 
 public class give implements Cmd {
+
+    private enum actions {
+	items, limiteditems;
+	public static actions getByname(String name) {
+	    for (actions one : actions.values()) {
+		if (one.name().equalsIgnoreCase(name))
+		    return one;
+	    }
+	    return null;
+	}
+    }
 
     @Override
     @JobCommand(2500)
@@ -19,6 +32,7 @@ public class give implements Cmd {
 
 	Player player = null;
 	Job job = null;
+	actions name = null;
 	String itemName = null;
 
 	for (String one : args) {
@@ -33,6 +47,12 @@ public class give implements Cmd {
 		if (job != null)
 		    continue;
 	    }
+
+	    if (name == null) {
+		name = actions.getByname(one);
+		if (name != null)
+		    continue;
+	    }
 	    itemName = one;
 	}
 
@@ -43,20 +63,43 @@ public class give implements Cmd {
 	    sender.sendMessage(Jobs.getLanguage().getMessage("command.give.output.notonline", "%playername%", args[0]));
 	    return true;
 	}
+	
+	if (name == null)
+	    name = actions.items;
 
-	if (job == null || itemName == null) {
+	if (itemName == null) {
 	    Jobs.getCommandManager().sendUsage(sender, "give");
 	    return true;
 	}
 
-	JobItems jItem = job.getItemBonus(itemName);
+	switch (name) {
+	case items:
+	    JobItems jItem = ItemBoostManager.getItemByKey(itemName);
 
-	if (jItem == null || jItem.getItemStack(player) == null) {
-	    sender.sendMessage(Jobs.getLanguage().getMessage("command.give.output.noitem"));
-	    return true;
+	    if (jItem == null || jItem.getItemStack(player) == null) {
+		sender.sendMessage(Jobs.getLanguage().getMessage("command.give.output.noitem"));
+		return true;
+	    }
+
+	    GiveItem.GiveItemForPlayer(player, jItem.getItemStack(player));
+	    break;
+	case limiteditems:
+	    if (job == null) {
+		Jobs.getCommandManager().sendUsage(sender, "give");
+		return true;
+	    }
+	    JobLimitedItems jLItem = job.getLimitedItems().get(itemName.toLowerCase());
+
+	    if (jLItem == null || jLItem.getItemStack(player) == null) {
+		sender.sendMessage(Jobs.getLanguage().getMessage("command.give.output.noitem"));
+		return true;
+	    }
+
+	    GiveItem.GiveItemForPlayer(player, jLItem.getItemStack(player));
+	    break;
+	default:
+	    break;
 	}
-
-	GiveItem.GiveItemForPlayer(player, jItem.getItemStack(player, job));
 	return true;
     }
 }

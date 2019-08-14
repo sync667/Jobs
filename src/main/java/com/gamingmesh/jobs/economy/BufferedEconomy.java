@@ -31,6 +31,7 @@ import org.bukkit.entity.Player;
 import com.gamingmesh.jobs.Jobs;
 import com.gamingmesh.jobs.api.JobsPaymentEvent;
 import com.gamingmesh.jobs.container.JobsPlayer;
+import com.gamingmesh.jobs.stuff.ToggleBarHandling;
 import com.gamingmesh.jobs.CMILib.VersionChecker.Version;
 import com.gamingmesh.jobs.tasks.BufferedPaymentTask;
 
@@ -131,8 +132,8 @@ public class BufferedEconomy {
 	    }
 
 	    boolean hasMoney = false;
-	    String ServerAccountname = Jobs.getGCManager().ServerAcountName;
-	    String ServerTaxesAccountname = Jobs.getGCManager().ServertaxesAcountName;
+	    String ServerAccountname = Jobs.getGCManager().ServerAccountName;
+	    String ServerTaxesAccountname = Jobs.getGCManager().ServertaxesAccountName;
 	    if (this.ServerAccount == null)
 		this.ServerAccount = Bukkit.getOfflinePlayer(ServerAccountname);
 
@@ -140,17 +141,15 @@ public class BufferedEconomy {
 		this.ServerTaxesAccount = Bukkit.getOfflinePlayer(ServerTaxesAccountname);
 
 	    if (Jobs.getGCManager().UseTaxes && Jobs.getGCManager().TransferToServerAccount && ServerTaxesAccount != null) {
-	    	if(TaxesAmount > 0) {
-				economy.depositPlayer(ServerTaxesAccount, TaxesAmount);
-			}
+		if (TaxesAmount > 0)
+		    economy.depositPlayer(ServerTaxesAccount, TaxesAmount);
+
 		if (ServerTaxesAccount.isOnline()) {
-		    if (!Jobs.getActionbarToggleList().containsKey(ServerTaxesAccountname) && Jobs.getGCManager().ActionBarsMessageByDefault)
-			Jobs.getActionbarToggleList().put(ServerTaxesAccountname, true);
-		    if (Jobs.getActionbarToggleList().containsKey(ServerTaxesAccountname) && Jobs.getActionbarToggleList().get(ServerTaxesAccountname)) {
-			Jobs.getActionBar();
+		    if (!ToggleBarHandling.getActionBarToggle().containsKey(ServerTaxesAccountname) && Jobs.getGCManager().ActionBarsMessageByDefault)
+			ToggleBarHandling.getActionBarToggle().put(ServerTaxesAccountname, true);
+		    if (ToggleBarHandling.getActionBarToggle().containsKey(ServerTaxesAccountname) && ToggleBarHandling.getActionBarToggle().get(ServerTaxesAccountname))
 			Jobs.getActionBar().send(Bukkit.getPlayer(ServerAccountname), Jobs.getLanguage().getMessage("message.taxes", "[amount]", (int) (TotalAmount * 100)
 			    / 100.0));
-		    }
 		}
 	    }
 
@@ -181,18 +180,17 @@ public class BufferedEconomy {
 
 		if (Jobs.getGCManager().UseServerAccount) {
 		    if (!hasMoney) {
-			Jobs.getActionBar();
 			Jobs.getActionBar().send(payment.getOfflinePlayer().getPlayer(), Jobs.getLanguage().getMessage("economy.error.nomoney"));
 			continue;
 		    }
-		    if (Jobs.getGCManager().isEconomyAsync()) {
+		    if (Jobs.getGCManager().isEconomyAsync())
 			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new BufferedPaymentTask(this, economy, payment), i);
-		    } else
+		    else
 			Bukkit.getScheduler().runTaskLater(plugin, new BufferedPaymentTask(this, economy, payment), i);
 		} else {
-		    if (Jobs.getGCManager().isEconomyAsync()) {
+		    if (Jobs.getGCManager().isEconomyAsync())
 			Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, new BufferedPaymentTask(this, economy, payment), i);
-		    } else
+		    else
 			Bukkit.getScheduler().runTaskLater(plugin, new BufferedPaymentTask(this, economy, payment), i);
 		}
 		try {
@@ -202,7 +200,7 @@ public class BufferedEconomy {
 			JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(payment.getOfflinePlayer().getUniqueId());
 			Jobs.getBBManager().ShowJobProgression(jPlayer);
 		    }
-		} catch (Exception e) {
+		} catch (Throwable e) {
 		}
 	    }
 	    // empty payment cache
@@ -212,20 +210,20 @@ public class BufferedEconomy {
     }
 
     public void ShowActionBar(BufferedPayment payment) {
-	if (!payment.getOfflinePlayer().isOnline()) {
+	if (!payment.getOfflinePlayer().isOnline())
 	    return;
-	}
+
 	String playername = payment.getOfflinePlayer().getName();
-	if ((!Jobs.getActionbarToggleList().containsKey(playername)) && (Jobs.getGCManager().ActionBarsMessageByDefault)) {
-	    Jobs.getActionbarToggleList().put(playername, Boolean.valueOf(true));
-	}
-	if (playername == null) {
+	if ((!ToggleBarHandling.getActionBarToggle().containsKey(playername)) && (Jobs.getGCManager().ActionBarsMessageByDefault))
+	    ToggleBarHandling.getActionBarToggle().put(playername, Boolean.valueOf(true));
+
+	if (playername == null)
 	    return;
-	}
-	if (!Jobs.getActionbarToggleList().containsKey(playername)) {
+
+	if (!ToggleBarHandling.getActionBarToggle().containsKey(playername))
 	    return;
-	}
-	Boolean show = Jobs.getActionbarToggleList().get(playername);
+
+	Boolean show = ToggleBarHandling.getActionBarToggle().get(playername);
 	Player abp = Bukkit.getPlayer(payment.getOfflinePlayer().getUniqueId());
 	if ((abp != null) && (show.booleanValue())) {
 	    String Message = Jobs.getLanguage().getMessage("command.toggle.output.paid.main");

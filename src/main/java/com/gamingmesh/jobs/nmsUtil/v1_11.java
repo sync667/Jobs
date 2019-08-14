@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.inventory.ItemStack;
@@ -48,5 +49,15 @@ public class v1_11 implements NMS {
     @Override
     public void setItemInMainHand(Player player, ItemStack item) {
 	player.getInventory().setItemInMainHand(item);
+    }
+
+    @Override
+    public double getMaxHealth(LivingEntity entity) {
+	return entity.getMaxHealth();
+    }
+
+    @Override
+    public short getDurability(ItemStack item) {
+	return item.getDurability();
     }
 }

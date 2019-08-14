@@ -1,14 +1,19 @@
 package com.gamingmesh.jobs.container;
 
+import java.util.HashMap;
+import java.util.Map.Entry;
+
 import org.bukkit.Bukkit;
 import org.bukkit.event.server.ServerCommandEvent;
+
+import com.gamingmesh.jobs.Jobs;
 
 public class QuestProgression {
 
     private Quest quest;
-    private int amountDone = 0;
     private Long validUntil;
     private boolean givenReward = false;
+    private HashMap<QuestObjective, Integer> done = new HashMap<>();
 
     public QuestProgression(Quest quest) {
 	this.quest = quest;
@@ -23,12 +28,31 @@ public class QuestProgression {
 	this.quest = quest;
     }
 
-    public int getAmountDone() {
+    public int getTotalAmountNeeded() {
+	int amountNeeded = 0;
+	for (Entry<String, QuestObjective> one : quest.getObjectives().entrySet()) {
+	    amountNeeded += one.getValue().getAmount();
+	}
+	return amountNeeded;
+    }
+
+    public int getTotalAmountDone() {
+	int amountDone = 0;
+	for (Entry<QuestObjective, Integer> one : done.entrySet()) {
+	    amountDone += one.getValue();
+	}
 	return amountDone;
     }
 
-    public void setAmountDone(int amountDone) {
-	this.amountDone = amountDone;
+    public int getAmountDone(QuestObjective objective) {
+	Integer amountDone = done.get(objective);
+	return amountDone == null ? 0 : amountDone;
+    }
+
+    public void setAmountDone(QuestObjective objective, int amountDone) {
+	if (quest.hasObjective(objective)) {
+	    done.put(objective, amountDone);
+	}
     }
 
     public Long getValidUntil() {
@@ -48,19 +72,45 @@ public class QuestProgression {
     }
 
     public boolean isCompleted() {
-	return amountDone >= quest.getAmount();
+	for (Entry<String, QuestObjective> one : quest.getObjectives().entrySet()) {
+	    Integer amountDone = this.done.get(one.getValue());
+	    if (amountDone == null || amountDone < one.getValue().getAmount())
+		return false;
+	}
+	return true;
     }
 
     public void processQuest(JobsPlayer jPlayer, ActionInfo action) {
-
-	if (!quest.getAction().name().equals(action.getType().name()))
+	if (!quest.hasAction(action.getType()))
 	    return;
 
-	if (!quest.getTargetName().equalsIgnoreCase(action.getName()) && !quest.getTargetName().equalsIgnoreCase(action.getNameWithSub()))
+	if (!quest.getObjectives().containsKey(action.getName()) && !quest.getObjectives().containsKey(action.getNameWithSub()))
 	    return;
 
-	if (!isCompleted())
-	    amountDone++;
+	if (quest.getRestrictedAreas() != null && !quest.getRestrictedAreas().isEmpty()) {
+	    for (String area : quest.getRestrictedAreas()) {
+		for (Entry<String, RestrictedArea> a : Jobs.getRestrictedAreaManager().getRestrictedAres().entrySet()) {
+		    if (quest.getRestrictedAreas().contains(a.getKey()) && a.getKey().equalsIgnoreCase(area)
+				&& a.getValue().inRestrictedArea(jPlayer.getPlayer().getLocation())) {
+			return;
+		    }
+		}
+	    }
+	}
+
+	if (!isCompleted()) {
+	    QuestObjective objective = quest.getObjectives().get(action.getName());
+	    if (objective == null)
+		objective = quest.getObjectives().get(action.getNameWithSub());
+	    Integer old = done.get(objective);
+	    if (old == null)
+		old = 0;
+	    if (old < objective.getAmount())
+		done.put(objective, old + 1);
+	    else {
+		done.put(objective, objective.getAmount());
+	    }
+	}
 
 	if (!isCompleted())
 	    return;

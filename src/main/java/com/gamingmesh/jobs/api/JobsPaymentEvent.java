@@ -13,6 +13,7 @@ public final class JobsPaymentEvent extends Event implements Cancellable {
     private boolean cancelled = false;
 
     public JobsPaymentEvent(OfflinePlayer offlinePlayer, double money, double points) {
+	super(true);
 	this.offlinePlayer = offlinePlayer;
 	this.money = money;
 	this.points = points;

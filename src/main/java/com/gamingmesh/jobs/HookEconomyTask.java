@@ -36,18 +36,17 @@ public class HookEconomyTask implements Runnable {
 
     @Override
     public void run() {
-
 	if (setVault())
 	    return;
 
 	// no Economy found
-	Jobs.setEconomy(this.plugin, new BlackholeEconomy());
-	Bukkit.getServer().getLogger().severe("==================== " + this.plugin.getDescription().getName() + " ====================");
-	Bukkit.getServer().getLogger().severe("Vault is required by this plugin for economy support!");
-	Bukkit.getServer().getLogger().severe("Please install them first!");
-	Bukkit.getServer().getLogger().severe("You can find the latest versions here:");
-	Bukkit.getServer().getLogger().severe("https://www.spigotmc.org/resources/vault.34315/");
-	Bukkit.getServer().getLogger().severe("==============================================");
+	Jobs.setEconomy(plugin, new BlackholeEconomy());
+	Jobs.getPluginLogger().severe("==================== " + plugin.getDescription().getName() + " ====================");
+	Jobs.getPluginLogger().severe("Vault is required by this plugin for economy support!");
+	Jobs.getPluginLogger().severe("Please install them first!");
+	Jobs.getPluginLogger().severe("You can find the latest versions here:");
+	Jobs.getPluginLogger().severe("https://www.spigotmc.org/resources/vault.34315/");
+	Jobs.getPluginLogger().severe("==============================================");
     }
 
     private boolean setVault() {
@@ -63,8 +62,8 @@ public class HookEconomyTask implements Runnable {
 	if (economy == null)
 	    return false;
 
-	Jobs.setEconomy(this.plugin, new VaultEconomy(economy));
-	Jobs.consoleMsg("&e[" + this.plugin.getDescription().getName() + "] Successfully linked with Vault.");
+	Jobs.setEconomy(plugin, new VaultEconomy(economy));
+	Jobs.consoleMsg("&e[" + plugin.getDescription().getName() + "] Successfully linked with Vault.");
 	return true;
     }
 

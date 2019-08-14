@@ -2,9 +2,7 @@ package com.gamingmesh.jobs.nmsUtil;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
-import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Guardian;
@@ -13,8 +11,8 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Skeleton;
 import org.bukkit.entity.Zombie;
 import org.bukkit.entity.Horse.Variant;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Skeleton.SkeletonType;
-import org.bukkit.entity.Villager.Profession;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.inventory.ItemStack;
 
@@ -53,9 +51,9 @@ public class v1_10 implements NMS {
 	    break;
 	case ZOMBIE:
 	    Zombie zombie = (Zombie) entity;
-	    if (zombie.isVillager() && zombie.getVillagerProfession() != Profession.HUSK)
+	    if (zombie.isVillager() && zombie.getVillagerProfession().toString().equals("HUSK"))
 		return "ZombieVillager";
-	    if (zombie.getVillagerProfession() == Profession.HUSK)
+	    if (zombie.getVillagerProfession().toString().equals("HUSK"))
 		return "ZombieHusk";
 	    break;
 	default:
@@ -74,4 +72,13 @@ public class v1_10 implements NMS {
 	player.getInventory().setItemInHand(item);
     }
 
+    @Override
+    public double getMaxHealth(LivingEntity entity) {
+	return entity.getMaxHealth();
+    }
+
+    @Override
+    public short getDurability(ItemStack item) {
+	return item.getDurability();
+    }
 }

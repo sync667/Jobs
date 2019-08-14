@@ -10,16 +10,18 @@ import java.util.Set;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.SkullMeta;
 
 import com.gamingmesh.jobs.Jobs;
+import com.gamingmesh.jobs.CMILib.CMIEnchantment;
 import com.gamingmesh.jobs.CMILib.ItemManager.CMIMaterial;
 import com.gamingmesh.jobs.container.BoostMultiplier;
 import com.gamingmesh.jobs.container.Job;
@@ -28,23 +30,18 @@ import com.gamingmesh.jobs.container.JobProgression;
 import com.gamingmesh.jobs.container.JobsPlayer;
 import com.gamingmesh.jobs.container.PlayerPoints;
 import com.gamingmesh.jobs.container.ShopItem;
-import com.gamingmesh.jobs.stuff.Perm;
+import com.gamingmesh.jobs.stuff.GiveItem;
 
 public class ShopManager {
-    private Jobs plugin;
-    public List<ShopItem> list = new ArrayList<>();
+    private List<ShopItem> list = new ArrayList<>();
     public HashMap<String, Integer> GuiList = new HashMap<>();
-
-    public ShopManager(Jobs plugin) {
-	this.plugin = plugin;
-    }
 
     public List<ShopItem> getShopItemList() {
 	return list;
     }
 
     public void openInventory(Player player, int page) {
-	Inventory inv = Jobs.getShopManager().CreateJobsGUI(player, page);
+	Inventory inv = CreateJobsGUI(player, page);
 	if (inv == null) {
 	    player.sendMessage(Jobs.getLanguage().getMessage("command.shop.info.cantOpen"));
 	    return;
@@ -75,48 +72,46 @@ public class ShopManager {
 	    return;
 
 	ShopItem item = ls.get(slot);
-	PlayerPoints pointsInfo = Jobs.getPlayerManager().getPointsData().getPlayerPointsInfo(player.getUniqueId());
+	PlayerPoints pointsInfo = Jobs.getPointsData().getPlayerPointsInfo(player.getUniqueId());
 
-	if (!Perm.hasPermission(player, "jobs.items.bypass")) {
-	    for (String onePerm : item.getRequiredPerm()) {
-		if (!Perm.hasPermission(player, onePerm)) {
-		    player.sendMessage(Jobs.getLanguage().getMessage("command.shop.info.NoPermForItem"));
-		    return;
-		}
-	    }
-
-	    JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(player);
-
-	    if (jPlayer == null)
-		return;
-
-	    for (Entry<String, Integer> oneJob : item.getRequiredJobs().entrySet()) {
-		Job tempJob = Jobs.getJob(oneJob.getKey());
-		if (tempJob == null)
-		    continue;
-		JobProgression playerJob = jPlayer.getJobProgression(tempJob);
-		if (playerJob == null || playerJob.getLevel() < oneJob.getValue()) {
-		    player.sendMessage(Jobs.getLanguage().getMessage("command.shop.info.NoJobReqForitem",
-			"%jobname%", tempJob.getName(),
-			"%joblevel%", oneJob.getValue()));
-		    return;
-		}
-	    }
-
-	    if (pointsInfo == null || pointsInfo.getCurrentPoints() < item.getPrice()) {
-		player.sendMessage(Jobs.getLanguage().getMessage("command.shop.info.NoPoints"));
+	//if (!player.hasPermission("jobs.items.bypass")) {
+	for (String onePerm : item.getRequiredPerm()) {
+	    if (!player.hasPermission(onePerm)) {
+		player.sendMessage(Jobs.getLanguage().getMessage("command.shop.info.NoPermForItem"));
 		return;
 	    }
+	}
 
-	    if (item.getRequiredTotalLevels() != -1 && jPlayer.getTotalLevels() < item.getRequiredTotalLevels()) {
-		player.sendMessage(Jobs.getLanguage().getMessage("command.shop.info.NoTotalLevel", "%totalLevel%", jPlayer.getTotalLevels()));
+	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(player);
+
+	if (jPlayer == null)
+	    return;
+
+	for (Entry<String, Integer> oneJob : item.getRequiredJobs().entrySet()) {
+	    Job tempJob = Jobs.getJob(oneJob.getKey());
+	    if (tempJob == null)
+		continue;
+	    JobProgression playerJob = jPlayer.getJobProgression(tempJob);
+	    if (playerJob == null || playerJob.getLevel() < oneJob.getValue()) {
+		player.sendMessage(Jobs.getLanguage().getMessage("command.shop.info.NoJobReqForitem",
+		    "%jobname%", tempJob.getName(),
+		    "%joblevel%", oneJob.getValue()));
 		return;
 	    }
+	}
 
+	if (pointsInfo == null || pointsInfo.getCurrentPoints() < item.getPrice()) {
+	    player.sendMessage(Jobs.getLanguage().getMessage("command.shop.info.NoPoints"));
+	    return;
+	}
+
+	if (item.getRequiredTotalLevels() != -1 && jPlayer.getTotalLevels() < item.getRequiredTotalLevels()) {
+	    player.sendMessage(Jobs.getLanguage().getMessage("command.shop.info.NoTotalLevel", "%totalLevel%", jPlayer.getTotalLevels()));
+	    return;
 	}
 
 	if (player.getInventory().firstEmpty() == -1) {
-	    player.sendMessage(Jobs.getLanguage().getMessage("command.shop.info.InvFull"));
+	    player.sendMessage(Jobs.getLanguage().getMessage("message.crafting.fullinventory"));
 	    return;
 	}
 
@@ -128,43 +123,12 @@ public class ShopManager {
 	}
 
 	for (JobItems one : item.getitems()) {
-	    CMIMaterial mat = CMIMaterial.get(one.getId(), one.getData());
-
-	    if (mat == null)
-		continue;
-
-	    ItemStack itemStack = mat.newItemStack();
-	    itemStack.setAmount(one.getAmount());
-	    
-	    ItemMeta meta = itemStack.getItemMeta();
-
-	    if (one.getName() != null)
-		meta.setDisplayName(one.getName());
-
-	    if (one.getLore() != null && !one.getLore().isEmpty())
-		meta.setLore(one.getLore());
-	    itemStack.setItemMeta(meta);
-
-	    if (itemStack.getType() == Material.ENCHANTED_BOOK) {
-		EnchantmentStorageMeta bookMeta = (EnchantmentStorageMeta) itemStack.getItemMeta();
-		for (Entry<Enchantment, Integer> oneEnch : one.getEnchants().entrySet()) {
-		    bookMeta.addStoredEnchant(oneEnch.getKey(), oneEnch.getValue(), true);
-		}
-		if (bookMeta != null)
-		    itemStack.setItemMeta(bookMeta);
-	    } else
-		for (Entry<Enchantment, Integer> oneEnch : one.getEnchants().entrySet()) {
-		    itemStack.addUnsafeEnchantment(oneEnch.getKey(), oneEnch.getValue());
-		}
-
-	    player.getInventory().addItem(itemStack);
-
+	    ItemStack itemStack = one.getItemStack(player);
+	    GiveItem.GiveItemForPlayer(player, itemStack);
 	}
 
-	if (!Perm.hasPermission(player, "jobs.items.bypass")) {
-	    pointsInfo.takePoints(item.getPrice());
-	    player.sendMessage(Jobs.getLanguage().getMessage("command.shop.info.Paid", "%amount%", item.getPrice()));
-	}
+	pointsInfo.takePoints(item.getPrice());
+	player.sendMessage(Jobs.getLanguage().getMessage("command.shop.info.Paid", "%amount%", item.getPrice()));
 
 	player.getOpenInventory().getTopInventory().setContents(CreateJobsGUI(player, page).getContents());
 
@@ -230,7 +194,7 @@ public class ShopManager {
 	if (title.length() > 32)
 	    title = title.substring(0, 30) + "..";
 
-	PlayerPoints pointsInfo = Jobs.getPlayerManager().getPointsData().getPlayerPointsInfo(player.getUniqueId());
+	PlayerPoints pointsInfo = Jobs.getPointsData().getPlayerPointsInfo(player.getUniqueId());
 	double points = 0D;
 	if (pointsInfo != null)
 	    points = (int) (pointsInfo.getCurrentPoints() * 100.0) / 100.0;
@@ -243,11 +207,11 @@ public class ShopManager {
 
 	    ArrayList<String> Lore = new ArrayList<>();
 
-	    CMIMaterial mat = CMIMaterial.get(item.getIconId(), item.getIconData());
+	    CMIMaterial mat = CMIMaterial.get(item.getIconMaterial());
 
 	    if (item.isHideWithoutPerm()) {
 		for (String onePerm : item.getRequiredPerm()) {
-		    if (!Perm.hasPermission(player, onePerm)) {
+		    if (!player.hasPermission(onePerm)) {
 			mat = CMIMaterial.STONE_BUTTON;
 			Lore.add(Jobs.getLanguage().getMessage("command.shop.info.NoPermToBuy"));
 			break;
@@ -260,7 +224,7 @@ public class ShopManager {
 
 	    ItemStack GUIitem = mat.newItemStack();
 	    GUIitem.setAmount(item.getIconAmount());
-	    
+
 	    ItemMeta meta = GUIitem.getItemMeta();
 
 	    if (item.getIconName() != null)
@@ -289,8 +253,7 @@ public class ShopManager {
 		    if (prog != null && prog.getLevel() < one.getValue())
 			levelColor = ChatColor.DARK_RED.toString();
 
-		    Lore.add(Jobs.getLanguage().getMessage("command.shop.info.reqJobsList", "%jobsname%", jobColor + one.getKey(), "%level%", levelColor + one
-			.getValue()));
+		    Lore.add(Jobs.getLanguage().getMessage("command.shop.info.reqJobsList", "%jobsname%", jobColor + one.getKey(), "%level%", levelColor + one.getValue()));
 		}
 	    }
 
@@ -300,18 +263,40 @@ public class ShopManager {
 	    }
 
 	    meta.setLore(Lore);
-	    GUIitem.setItemMeta(meta);
+
+	    if (item.getCustomHead() != null) {
+		GUIitem = CMIMaterial.PLAYER_HEAD.newItemStack();
+
+		SkullMeta skullMeta = (SkullMeta) GUIitem.getItemMeta();
+		// Fix skull meta
+		skullMeta.setDisplayName(item.getIconName());
+		skullMeta.setLore(Lore);
+
+		if (item.isHeadOwner())
+		    skullMeta.setOwner(Jobs.getPlayerManager().getJobsPlayer(player).getUserName());
+		else {
+		    try {
+			OfflinePlayer offPlayer = Bukkit.getOfflinePlayer(item.getCustomHead());
+			skullMeta.setOwner(offPlayer.getName());
+		    } catch (Throwable e) {
+			e.printStackTrace();
+		    }
+		}
+		GUIitem.setItemMeta(skullMeta);
+	    } else
+		GUIitem.setItemMeta(meta);
+
 	    GuiInv.setItem(i, GUIitem);
 	}
 
 	ItemStack Item = new ItemStack(Material.ARROW);
 
 	ItemMeta meta = Item.getItemMeta();
-	int pervSlot = getPrevButtonSlot(GuiSize, page);
-	if (pervSlot != -1) {
+	int prevSlot = getPrevButtonSlot(GuiSize, page);
+	if (prevSlot != -1) {
 	    meta.setDisplayName(Jobs.getLanguage().getMessage("command.help.output.prevPage"));
 	    Item.setItemMeta(meta);
-	    GuiInv.setItem(pervSlot, Item);
+	    GuiInv.setItem(prevSlot, Item);
 	}
 
 	int nextSlot = getnextButtonSlot(GuiSize, page);
@@ -326,7 +311,7 @@ public class ShopManager {
 
     public void load() {
 	list.clear();
-	File file = new File(plugin.getDataFolder(), "shopItems.yml");
+	File file = new File(Jobs.getFolder(), "shopItems.yml");
 	YamlConfiguration f = YamlConfiguration.loadConfiguration(file);
 
 	if (!f.isConfigurationSection("Items"))
@@ -334,8 +319,10 @@ public class ShopManager {
 
 	ConfigurationSection ConfCategory = f.getConfigurationSection("Items");
 	ArrayList<String> categoriesList = new ArrayList<>(ConfCategory.getKeys(false));
-	if (categoriesList.size() == 0)
+
+	if (categoriesList.isEmpty())
 	    return;
+
 	int i = 0;
 	int y = 1;
 	for (String category : categoriesList) {
@@ -348,16 +335,14 @@ public class ShopManager {
 
 	    double price = NameSection.getDouble("Price");
 
-	    if (!NameSection.isInt("Icon.Id")) {
-		Jobs.getPluginLogger().severe("Shop item " + category + " has an invalid Icon Id property. Skipping!");
+	    ShopItem Sitem = new ShopItem(category, price);
+
+	    if (NameSection.isString("Icon.Id"))
+		Sitem.setIconMaterial(NameSection.getString("Icon.Id"));
+	    else {
+		Jobs.getPluginLogger().severe("Shop item " + category + " has an invalid Icon name property. Skipping!");
 		continue;
 	    }
-
-	    int IconId = NameSection.getInt("Icon.Id");
-	    ShopItem Sitem = new ShopItem(category, price, IconId);
-
-	    if (NameSection.isInt("Icon.Data"))
-		Sitem.setIconData(NameSection.getInt("Icon.Data"));
 
 	    if (NameSection.isInt("Icon.Amount"))
 		Sitem.setIconAmount(NameSection.getInt("Icon.Amount"));
@@ -367,19 +352,26 @@ public class ShopManager {
 
 	    if (NameSection.isList("Icon.Lore")) {
 		List<String> lore = new ArrayList<>();
-		if (NameSection.getStringList("Icon.Lore") != null && !NameSection.getStringList("Icon.Lore").isEmpty())
+		if (!NameSection.getStringList("Icon.Lore").isEmpty())
 		    for (String eachLine : NameSection.getStringList("Icon.Lore")) {
 			lore.add(ChatColor.translateAlternateColorCodes('&', eachLine));
 		    }
 		Sitem.setIconLore(lore);
 	    }
 
-	    if (NameSection.isBoolean("Icon.HideWithoutPermission")) {
-		Sitem.setHideWithoutPerm(NameSection.getBoolean("Icon.HideWithoutPermission"));
-	    }
+	    if (NameSection.isString("Icon.CustomHead.PlayerName"))
+		Sitem.setCustomHead(NameSection.getString("Icon.CustomHead.PlayerName"));
 
-	    if (NameSection.isList("RequiredPermission"))
-		Sitem.setRequiredPerm(NameSection.getStringList("RequiredPermission"));
+	    if (NameSection.isBoolean("Icon.CustomHead.UseCurrentPlayer"))
+		Sitem.setCustomHeadOwner(NameSection.getBoolean("Icon.CustomHead.UseCurrentPlayer"));
+
+	    if (NameSection.isBoolean("Icon.HideWithoutPermission"))
+		Sitem.setHideWithoutPerm(NameSection.getBoolean("Icon.HideWithoutPermission"));
+
+	    if (NameSection.isList("RequiredPermission")) {
+		if (!NameSection.getStringList("RequiredPermission").isEmpty())
+		    Sitem.setRequiredPerm(NameSection.getStringList("RequiredPermission"));
+	    }
 
 	    if (NameSection.isInt("RequiredTotalLevels"))
 		Sitem.setRequiredTotalLevels(NameSection.getInt("RequiredTotalLevels"));
@@ -404,7 +396,7 @@ public class ShopManager {
 
 	    if (NameSection.isList("PerformCommands")) {
 		List<String> cmd = new ArrayList<>();
-		if (NameSection.getStringList("PerformCommands") != null && !NameSection.getStringList("PerformCommands").isEmpty())
+		if (!NameSection.getStringList("PerformCommands").isEmpty())
 		    for (String eachLine : NameSection.getStringList("PerformCommands")) {
 			cmd.add(ChatColor.translateAlternateColorCodes('&', eachLine));
 		    }
@@ -423,11 +415,13 @@ public class ShopManager {
 
 		    String node = oneItemName.toLowerCase();
 
-		    int id = itemSection.getInt("Id");
-
-		    int data = 0;
-		    if (itemSection.isInt("Data"))
-			data = itemSection.getInt("Data");
+		    String id = null;
+		    if (itemSection.isString("Id"))
+			id = itemSection.getString("Id");
+		    else {
+			Jobs.getPluginLogger().severe("Shop item " + category + " has an invalid GiveItems name property. Skipping!");
+			continue;
+		    }
 
 		    int amount = 1;
 		    if (itemSection.isInt("Amount"))
@@ -438,19 +432,19 @@ public class ShopManager {
 			name = ChatColor.translateAlternateColorCodes('&', itemSection.getString("Name"));
 
 		    List<String> lore = new ArrayList<>();
-		    if (itemSection.getStringList("Lore") != null && !itemSection.getStringList("Lore").isEmpty())
+		    if (itemSection.contains("Lore") && !itemSection.getStringList("Lore").isEmpty())
 			for (String eachLine : itemSection.getStringList("Lore")) {
 			    lore.add(ChatColor.translateAlternateColorCodes('&', eachLine));
 			}
 
 		    HashMap<Enchantment, Integer> enchants = new HashMap<>();
-		    if (itemSection.getStringList("Enchants") != null && !itemSection.getStringList("Enchants").isEmpty())
+		    if (itemSection.contains("Enchants") && !itemSection.getStringList("Enchants").isEmpty())
 			for (String eachLine : itemSection.getStringList("Enchants")) {
 
 			    if (!eachLine.contains("="))
 				continue;
 
-			    Enchantment ench = Enchantment.getByName(eachLine.split("=")[0]);
+			    Enchantment ench = CMIEnchantment.getEnchantment(eachLine.split("=")[0]);
 			    Integer level = -1;
 			    try {
 				level = Integer.parseInt(eachLine.split("=")[1]);
@@ -462,7 +456,7 @@ public class ShopManager {
 				enchants.put(ench, level);
 			}
 
-		    items.add(new JobItems(node, id, data, amount, name, lore, enchants, new BoostMultiplier()));
+		    items.add(new JobItems(node, id == null ? CMIMaterial.STONE : CMIMaterial.get(id), amount, name, lore, enchants, new BoostMultiplier(), new ArrayList<Job>()));
 		}
 		Sitem.setitems(items);
 	    }
@@ -484,7 +478,7 @@ public class ShopManager {
 	}
 
 	if (!list.isEmpty())
-		Jobs.consoleMsg("&e[Jobs] Loaded " + list.size() + " shop items!");
+	    Jobs.consoleMsg("&e[Jobs] Loaded " + list.size() + " shop items!");
 
 	return;
     }
@@ -492,9 +486,8 @@ public class ShopManager {
     public void CloseInventories() {
 	for (Entry<String, Integer> one : GuiList.entrySet()) {
 	    Player player = Bukkit.getPlayer(one.getKey());
-	    if (player != null) {
+	    if (player != null)
 		player.closeInventory();
-	    }
 	}
     }
 }

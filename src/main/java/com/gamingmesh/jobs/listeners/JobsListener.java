@@ -71,7 +71,12 @@ import org.bukkit.permissions.PermissionDefault;
 import org.bukkit.plugin.PluginManager;
 
 import com.gamingmesh.jobs.Jobs;
+import com.gamingmesh.jobs.CMILib.ItemManager.CMIMaterial;
+import com.gamingmesh.jobs.CMILib.VersionChecker.Version;
 import com.gamingmesh.jobs.Gui.GuiInfoList;
+import com.gamingmesh.jobs.Signs.SignTopType;
+import com.gamingmesh.jobs.Signs.SignUtil;
+import com.gamingmesh.jobs.Signs.jobsSign;
 import com.gamingmesh.jobs.api.JobsAreaSelectionEvent;
 import com.gamingmesh.jobs.api.JobsChunkChangeEvent;
 import com.gamingmesh.jobs.container.ArmorTypes;
@@ -110,12 +115,7 @@ public class JobsListener implements Listener {
 	if (msg == null)
 	    return;
 
-	Bukkit.getServer().getScheduler().runTask(plugin, new Runnable() {
-	    @Override
-	    public void run() {
-		player.performCommand(msg + event.getMessage());
-	    }
-	});
+	Bukkit.getServer().getScheduler().runTask(plugin, () -> player.performCommand(msg + event.getMessage()));
 	event.setCancelled(true);
     }
 
@@ -139,37 +139,40 @@ public class JobsListener implements Listener {
 
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onSelection(PlayerInteractEvent event) {
-	if (event.getPlayer() == null)
+	Player player = event.getPlayer();
+
+	if (player == null)
 	    return;
-	//disabling plugin in world
-	if (event.getPlayer() != null && !Jobs.getGCManager().canPerformActionInWorld(event.getPlayer().getWorld()))
+
+	if (event.getClickedBlock() == null)
 	    return;
+
 	if (event.getAction() != Action.LEFT_CLICK_BLOCK && event.getAction() != Action.RIGHT_CLICK_BLOCK)
 	    return;
-	Player player = event.getPlayer();
 
 	ItemStack iih = Jobs.getNms().getItemInMainHand(player);
 	if (iih == null || iih.getType() == Material.AIR)
 	    return;
-	@SuppressWarnings("deprecation")
-	int heldItemId = iih.getType().getId();
-	if (heldItemId != Jobs.getGCManager().getSelectionTooldID())
+
+	if (!iih.getType().equals(CMIMaterial.get(Jobs.getGCManager().getSelectionTool()).getMaterial()))
+	    return;
+
+	if (!Jobs.getGCManager().canPerformActionInWorld(event.getPlayer().getWorld()))
 	    return;
 
 	if (!player.hasPermission("jobs.area.select"))
 	    return;
 
-	if (player.getGameMode() == GameMode.CREATIVE)
+	if (player.getGameMode().equals(GameMode.CREATIVE))
 	    event.setCancelled(true);
 
 	Block block = event.getClickedBlock();
+	Location loc = block.getLocation();
 	if (event.getAction() == Action.LEFT_CLICK_BLOCK) {
-	    Location loc = block.getLocation();
 	    Jobs.getSelectionManager().placeLoc1(player, loc);
 	    player.sendMessage(Jobs.getLanguage().getMessage("command.area.output.selected1", "%x%", loc.getBlockX(), "%y%", loc.getBlockY(), "%z%", loc.getBlockZ()));
 	    event.setCancelled(true);
 	} else if (event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-	    Location loc = block.getLocation();
 	    Jobs.getSelectionManager().placeLoc2(player, loc);
 	    player.sendMessage(Jobs.getLanguage().getMessage("command.area.output.selected2", "%x%", loc.getBlockX(), "%y%", loc.getBlockY(), "%z%", loc.getBlockZ()));
 	    event.setCancelled(true);
@@ -191,6 +194,9 @@ public class JobsListener implements Listener {
 
 	Player player = (Player) event.getWhoClicked();
 
+	if (player == null)
+	    return;
+
 	if (!Jobs.getShopManager().GuiList.containsKey(player.getName()))
 	    return;
 
@@ -209,18 +215,15 @@ public class JobsListener implements Listener {
     public void onShopGuiClose(InventoryCloseEvent event) {
 	if (Jobs.getShopManager().GuiList.isEmpty())
 	    return;
-	Player player = (Player) event.getPlayer();
-	if (Jobs.getShopManager().GuiList.containsKey(player.getName())) {
-	    Jobs.getShopManager().GuiList.remove(player.getName());
-	}
+	if (Jobs.getShopManager().GuiList.containsKey(event.getPlayer().getName()))
+	    Jobs.getShopManager().GuiList.remove(event.getPlayer().getName());
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
     public void onGuiClose(InventoryCloseEvent event) {
 	if (Jobs.getGUIManager().GuiList.isEmpty())
 	    return;
-	Player player = (Player) event.getPlayer();
-	Jobs.getGUIManager().GuiList.remove(player.getUniqueId());
+	Jobs.getGUIManager().GuiList.remove(event.getPlayer().getUniqueId());
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -248,15 +251,15 @@ public class JobsListener implements Listener {
 		if (job != null) {
 		    Inventory inv = Jobs.getGUIManager().CreateJobsSubGUI(player, job);
 		    Inventory top = player.getOpenInventory().getTopInventory();
-		    if (top.getSize() == Jobs.getGCManager().getJobsGUIRows() * 9)
-			top.setContents(inv.getContents());
+//		    if (top.getSize() == Jobs.getGCManager().getJobsGUIRows() * 9)
+		    top.setContents(inv.getContents());
 		}
 	    } else if (joblist.isJobInfo()) {
 		if (slot == joblist.getbackButton()) {
 		    Inventory inv = Jobs.getGUIManager().CreateJobsGUI(player);
 		    Inventory top = player.getOpenInventory().getTopInventory();
-		    if (top.getSize() == Jobs.getGCManager().getJobsGUIRows() * 9)
-			top.setContents(inv.getContents());
+//		    if (top.getSize() == Jobs.getGCManager().getJobsGUIRows() * 9)
+		    top.setContents(inv.getContents());
 		}
 	    } else if (!Jobs.getGCManager().JobsGUISwitcheButtons && event.getClick() == ClickType.RIGHT ||
 		Jobs.getGCManager().JobsGUISwitcheButtons && event.getClick() == ClickType.LEFT) {
@@ -285,9 +288,9 @@ public class JobsListener implements Listener {
 	// make sure plugin is enabled
 	if (!plugin.isEnabled())
 	    return;
-	if (!Jobs.getGCManager().MultiServerCompatability()) {
+	if (!Jobs.getGCManager().MultiServerCompatability())
 	    Jobs.getPlayerManager().playerJoin(event.getPlayer());
-	} else {
+	else {
 	    Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(plugin, new Runnable() {
 		@Override
 		public void run() {
@@ -352,6 +355,9 @@ public class JobsListener implements Listener {
 
 	Player player = event.getPlayer();
 
+	if (player == null)
+	    return;
+
 	if (!isInteractOk(player))
 	    return;
 
@@ -392,36 +398,30 @@ public class JobsListener implements Listener {
 
 	Player player = event.getPlayer();
 
+	if (player == null)
+	    return;
+
 	Sign sign = (Sign) block.getState();
 	String FirstLine = sign.getLine(0);
-	if (FirstLine.equalsIgnoreCase(Jobs.getLanguage().getMessage("signs.topline")))
+	if (FirstLine.contains(Jobs.getLanguage().getMessage("signs.topline"))) {
 	    if (!player.hasPermission("jobs.command.signs")) {
 		event.setCancelled(true);
 		player.sendMessage(Jobs.getLanguage().getMessage("signs.cantdestroy"));
 		return;
 	    }
-
-	Location loc = block.getLocation();
-
-	for (com.gamingmesh.jobs.Signs.Sign one : Jobs.getSignUtil().getSigns().GetAllSigns()) {
-
-	    if (one.GetX() != loc.getBlockX())
-		continue;
-	    if (one.GetY() != loc.getBlockY())
-		continue;
-	    if (one.GetZ() != loc.getBlockZ())
-		continue;
-
-	    if (!player.hasPermission("jobs.command.signs")) {
-		event.setCancelled(true);
-		player.sendMessage(Jobs.getLanguage().getMessage("signs.cantdestroy"));
-		return;
-	    }
-
-	    Jobs.getSignUtil().getSigns().removeSign(one);
-	    Jobs.getSignUtil().saveSigns();
-	    break;
 	}
+
+	jobsSign jSign = Jobs.getSignUtil().getSign(block.getLocation());
+	if (jSign == null)
+	    return;
+
+	if (!player.hasPermission("jobs.command.signs")) {
+	    event.setCancelled(true);
+	    player.sendMessage(Jobs.getLanguage().getMessage("signs.cantdestroy"));
+	    return;
+	}
+	if (Jobs.getSignUtil().removeSign(block.getLocation()))
+	    Jobs.getSignUtil().saveSigns();
     }
 
     @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
@@ -441,13 +441,18 @@ public class JobsListener implements Listener {
 
 	final String signtype = ChatColor.stripColor(event.getLine(1));
 
+	SignTopType type = SignTopType.getType(signtype);
+
 	if (!ChatColor.stripColor(event.getLine(0)).equalsIgnoreCase("[Jobs]"))
 	    return;
 
-	if (!signtype.equalsIgnoreCase("toplist") && !signtype.equalsIgnoreCase("gtoplist"))
+	if (type == null)
 	    return;
 
 	Player player = event.getPlayer();
+
+	if (player == null)
+	    return;
 
 	if (!player.hasPermission("jobs.command.signs")) {
 	    event.setCancelled(true);
@@ -459,7 +464,7 @@ public class JobsListener implements Listener {
 
 	final Job job = Jobs.getJob(jobname);
 
-	if (job == null && !signtype.equalsIgnoreCase("gtoplist")) {
+	if (type == SignTopType.toplist && job == null) {
 	    player.sendMessage(Jobs.getLanguage().getMessage("command.top.error.nojob"));
 	    return;
 	}
@@ -479,36 +484,27 @@ public class JobsListener implements Listener {
 	    return;
 	}
 
-	com.gamingmesh.jobs.Signs.Sign signInfo = new com.gamingmesh.jobs.Signs.Sign();
+	jobsSign signInfo = new jobsSign();
+	SignUtil signUtil = Jobs.getSignUtil();
 
 	Location loc = sign.getLocation();
-
-	int category = 1;
-	if (Jobs.getSignUtil().getSigns().GetAllSigns().size() > 0)
-	    category = Jobs.getSignUtil().getSigns().GetAllSigns().get(Jobs.getSignUtil().getSigns().GetAllSigns().size() - 1).GetCategory() + 1;
+	signInfo.setLoc(loc);
 	signInfo.setNumber(Number);
-	signInfo.setWorld(loc.getWorld().getName());
-	signInfo.setX(loc.getX());
-	signInfo.setY(loc.getY());
-	signInfo.setZ(loc.getZ());
-	signInfo.setCategory(category);
-	if (!signtype.equalsIgnoreCase("gtoplist") && job != null)
+
+	if (job != null)
 	    signInfo.setJobName(job.getName());
-	else
-	    signInfo.setJobName("gtoplist");
+	signInfo.setType(type);
+
 	signInfo.setSpecial(special);
 
-	Jobs.getSignUtil().getSigns().addSign(signInfo);
-	Jobs.getSignUtil().saveSigns();
+	signUtil.addSign(signInfo);
+	signUtil.saveSigns();
 	event.setCancelled(true);
 
 	Bukkit.getServer().getScheduler().scheduleSyncDelayedTask(plugin, new Runnable() {
 	    @Override
 	    public void run() {
-		if (!signtype.equalsIgnoreCase("gtoplist") && job != null)
-		    Jobs.getSignUtil().SignUpdate(job.getName());
-		else
-		    Jobs.getSignUtil().SignUpdate("gtoplist");
+		signUtil.SignUpdate(job, type);
 		return;
 	    }
 	}, 1L);
@@ -636,21 +632,20 @@ public class JobsListener implements Listener {
 	}, 1L);
     }
 
-    @SuppressWarnings("deprecation")
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onLimitedItemInteract(PlayerInteractEvent event) {
-	//disabling plugin in world
-	if (event.getClickedBlock() != null && !Jobs.getGCManager().canPerformActionInWorld(event.getClickedBlock().getWorld()))
-	    return;
 	Player player = event.getPlayer();
+	if (player == null)
+	    return;
 
-	ItemStack iih = player.getItemInHand();
+	ItemStack iih = Jobs.getNms().getItemInMainHand(player);
+	if (iih == null || iih.getType() == Material.AIR)
+	    return;
 
-	if (iih == null)
+	if (event.getClickedBlock() != null && !Jobs.getGCManager().canPerformActionInWorld(event.getClickedBlock().getWorld()))
 	    return;
 
 	JobsPlayer JPlayer = Jobs.getPlayerManager().getJobsPlayer(player);
-
 	if (JPlayer == null)
 	    return;
 
@@ -662,7 +657,7 @@ public class JobsListener implements Listener {
 	Map<Enchantment, Integer> enchants = new HashMap<>();
 	try {
 	    enchants = iih.getEnchantments();
-	} catch (Exception e) {
+	} catch (Throwable e) {
 	    return;
 	}
 	if (enchants.isEmpty())
@@ -679,10 +674,10 @@ public class JobsListener implements Listener {
 	String meinOk = null;
 
 	mein: for (JobProgression one : prog) {
-	    for (JobLimitedItems oneItem : one.getJob().getLimitedItems()) {
-		if (one.getLevel() >= oneItem.getLevel())
+	    for (Entry<String, JobLimitedItems> oneItem : one.getJob().getLimitedItems().entrySet()) {
+		if (one.getLevel() >= oneItem.getValue().getLevel())
 		    continue;
-		if (!isThisItem(oneItem, iih.getType().getId(), name, lore, enchants))
+		if (!isThisItem(oneItem.getValue(), CMIMaterial.get(iih), name, lore, enchants))
 		    continue;
 		meinOk = one.getJob().getName();
 		break mein;
@@ -695,9 +690,9 @@ public class JobsListener implements Listener {
 	}
     }
 
-    private static boolean isThisItem(JobLimitedItems oneItem, int id, String name, List<String> lore, Map<Enchantment, Integer> enchants) {
+    private static boolean isThisItem(JobLimitedItems oneItem, CMIMaterial mat, String name, List<String> lore, Map<Enchantment, Integer> enchants) {
 
-	if (oneItem.getId() != id)
+	if (oneItem.getType() != mat)
 	    return false;
 
 	if (oneItem.getName() != null && name != null) {
@@ -730,6 +725,11 @@ public class JobsListener implements Listener {
 
     @EventHandler
     public void onChunkChangeMove(PlayerMoveEvent event) {
+	if (event.isCancelled())
+	    return;
+	if (event.getPlayer() == null || !event.getPlayer().isOnline())
+	    return;
+
 	//disabling plugin in world
 	if (event.getTo() != null && !Jobs.getGCManager().canPerformActionInWorld(event.getTo().getWorld()))
 	    return;
@@ -809,29 +809,26 @@ public class JobsListener implements Listener {
 			newArmorType = ArmorTypes.matchType(hotbarItem);
 			newArmorPiece = hotbarItem;
 			oldArmorPiece = event.getClickedInventory().getItem(event.getSlot());
-		    } else {
+		    } else
 			newArmorType = ArmorTypes.matchType(oldArmorPiece != null && oldArmorPiece.getType() != Material.AIR ? oldArmorPiece : event.getCursor());
-		    }
 		}
-	    } else {
+	    } else
 		newArmorType = ArmorTypes.matchType(oldArmorPiece != null && oldArmorPiece.getType() != Material.AIR ? oldArmorPiece : event.getCursor());
-	    }
+
 	    if (newArmorType != null && event.getRawSlot() == newArmorType.getSlot()) {
 		EquipMethod method = EquipMethod.DRAG;
 		if (event.getAction().equals(InventoryAction.HOTBAR_SWAP) || numberkey)
 		    method = EquipMethod.HOTBAR_SWAP;
 		JobsArmorChangeEvent armorEquipEvent = new JobsArmorChangeEvent((Player) event.getWhoClicked(), method, newArmorType, oldArmorPiece, newArmorPiece);
 		Bukkit.getServer().getPluginManager().callEvent(armorEquipEvent);
-		if (armorEquipEvent.isCancelled()) {
+		if (armorEquipEvent.isCancelled())
 		    event.setCancelled(true);
-		}
 	    }
 	}
     }
 
     @EventHandler
     public void playerInteractEvent(PlayerInteractEvent event) {
-
 	Action action = event.getAction();
 	if (action == Action.PHYSICAL)
 	    return;
@@ -870,6 +867,7 @@ public class JobsListener implements Listener {
 	ArmorTypes type = ArmorTypes.matchType(item);
 	if (ArmorTypes.matchType(item) == null)
 	    return;
+
 	Location loc = event.getBlock().getLocation();
 	for (Player p : loc.getWorld().getPlayers()) {
 	    Location ploc = p.getLocation();
@@ -882,9 +880,19 @@ public class JobsListener implements Listener {
 
 		    if (!(event.getBlock().getState() instanceof Dispenser))
 			continue;
-		    Dispenser dispenser = (Dispenser) event.getBlock().getState();
-		    org.bukkit.material.Dispenser dis = (org.bukkit.material.Dispenser) dispenser.getData();
-		    BlockFace directionFacing = dis.getFacing();
+
+		    Dispenser dispenser = null;
+		    BlockFace directionFacing = null;
+		    if (Version.isCurrentEqualOrLower(Version.v1_13_R2)) {
+			dispenser = (Dispenser) event.getBlock().getState();
+			org.bukkit.material.Dispenser dis = (org.bukkit.material.Dispenser) dispenser.getData();
+			directionFacing = dis.getFacing();
+		    } else {
+			dispenser = (Dispenser) event.getBlock().getState();
+			org.bukkit.block.data.type.Dispenser dis = (org.bukkit.block.data.type.Dispenser) dispenser.getBlockData();
+			directionFacing = dis.getFacing();
+		    }
+
 		    if (directionFacing == BlockFace.EAST &&
 			ploc.getBlockX() != loc.getBlockX() &&
 			ploc.getX() <= loc.getX() + 2.3 &&

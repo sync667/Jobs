@@ -10,6 +10,7 @@ import com.gamingmesh.jobs.commands.Cmd;
 import com.gamingmesh.jobs.commands.JobCommand;
 import com.gamingmesh.jobs.container.JobProgression;
 import com.gamingmesh.jobs.container.JobsPlayer;
+import com.gamingmesh.jobs.stuff.Util;
 
 public class leaveall implements Cmd {
 
@@ -25,9 +26,26 @@ public class leaveall implements Cmd {
 	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(pSender);
 
 	List<JobProgression> jobs = jPlayer.getJobProgression();
-	if (jobs.size() == 0) {
+	if (jobs.isEmpty()) {
 	    sender.sendMessage(Jobs.getLanguage().getMessage("command.leaveall.error.nojobs"));
 	    return true;
+	}
+
+	if (Jobs.getGCManager().EnableConfirmation) {
+	    String uuid = pSender.getUniqueId().toString();
+
+	    if (!Util.confirmLeave.contains(uuid)) {
+		Util.confirmLeave.add(uuid);
+
+		plugin.getServer().getScheduler().runTaskLater(plugin, () -> Util.confirmLeave.remove(uuid),
+		    20 * Jobs.getGCManager().ConfirmExpiryTime);
+
+		pSender.sendMessage(Jobs.getLanguage().getMessage("command.leaveall.confirmationNeed", "[time]",
+		    Jobs.getGCManager().ConfirmExpiryTime));
+		return true;
+	    }
+
+	    Util.confirmLeave.remove(uuid);
 	}
 
 	Jobs.getPlayerManager().leaveAllJobs(jPlayer);

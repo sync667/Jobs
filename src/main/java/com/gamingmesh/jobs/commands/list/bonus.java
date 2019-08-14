@@ -1,10 +1,10 @@
 package com.gamingmesh.jobs.commands.list;
 
-import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import com.gamingmesh.jobs.Jobs;
 import com.gamingmesh.jobs.PlayerManager.BoostOf;
+import com.gamingmesh.jobs.CMILib.RawMessage;
 import com.gamingmesh.jobs.commands.Cmd;
 import com.gamingmesh.jobs.commands.JobCommand;
 import com.gamingmesh.jobs.container.Boost;
@@ -31,19 +31,15 @@ public class bonus implements Cmd {
 	Player player = (Player) sender;
 
 	Job job = Jobs.getJob(args[0]);
-
 	if (job == null) {
 	    sender.sendMessage(Jobs.getLanguage().getMessage("general.error.job"));
 	    return true;
 	}
 
 	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(player);
-
 	if (jPlayer == null)
 	    return false;
 
-	Jobs.getPlayerManager().updateOldItems(player);
-	
 	Boost boost = Jobs.getPlayerManager().getFinalBonus(jPlayer, job, true, true);
 
 	sender.sendMessage(Jobs.getLanguage().getMessage("command.bonus.output.topline"));
@@ -58,21 +54,21 @@ public class bonus implements Cmd {
 	    printBoost(sender, boost, BoostOf.NearSpawner);
 	printBoost(sender, boost, BoostOf.PetPay);
 
-	if (Jobs.getMcMMOlistener().mcMMOPresent && boost.get(BoostOf.McMMO, CurrencyType.EXP) != 0D)
+	if (Jobs.getMcMMOManager().mcMMOPresent || Jobs.getMcMMOManager().mcMMOOverHaul && boost.get(BoostOf.McMMO, CurrencyType.EXP) != 0D)
 	    printBoost(sender, boost, BoostOf.McMMO);
 
 	sender.sendMessage(Jobs.getLanguage().getMessage("general.info.separator"));
 
+	RawMessage rm = new RawMessage();
 	String msg = Jobs.getLanguage().getMessage("command.bonus.output.final",
 	    "%money%", mc + formatText(boost.getFinal(CurrencyType.MONEY, true, true)),
 	    "%points%", pc + formatText(boost.getFinal(CurrencyType.POINTS, true, true)),
 	    "%exp%", ec + formatText(boost.getFinal(CurrencyType.EXP, true, true)));
 
-	String txt = "[\"\",{\"text\":\"" + msg
-	    + "\",\"hoverEvent\":{\"action\":\"show_text\",\"value\":{\"text\":\"\",\"extra\":[{\"text\":\"" + Jobs.getLanguage().getMessage(
-		"command.bonus.output.finalExplanation") + "\"}]}}}]";
-
-	Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "tellraw " + player.getName() + " " + txt);
+	rm.addText(msg);
+	rm.addHoverText(Jobs.getLanguage().getMessage("command.bonus.output.finalExplanation"));
+	rm.build();
+	rm.show(player);
 
 	return true;
     }

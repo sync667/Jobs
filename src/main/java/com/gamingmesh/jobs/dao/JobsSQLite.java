@@ -11,8 +11,6 @@ import com.gamingmesh.jobs.Jobs;
 import com.gamingmesh.jobs.dao.JobsManager.DataBaseType;
 
 public class JobsSQLite extends JobsDAO {
-    @SuppressWarnings("unused")
-	private Jobs plugin;
 
     public void initialize() {
 	try {
@@ -22,8 +20,7 @@ public class JobsSQLite extends JobsDAO {
 	}
     }
 
-    public JobsSQLite initialize(Jobs plugin, File dir) {
-	this.plugin = plugin;
+    public JobsSQLite initialize(File dir) {
 	if (!dir.exists())
 	    dir.mkdirs();
 	try {
@@ -113,7 +110,6 @@ public class JobsSQLite extends JobsDAO {
 	return prest;
     }
 
-    @SuppressWarnings("resource")
     @Override
     public boolean createTable(String query) {
 	Statement statement = null;
@@ -125,12 +121,12 @@ public class JobsSQLite extends JobsDAO {
 
 	    statement = getConnection().createStatement();
 	    statement.execute(query);
-	    statement.close();
 	    return true;
 	} catch (SQLException e) {
 	    Jobs.consoleMsg("&cCould not create table, SQLException: " + e.getMessage());
-	    close(statement);
 	    return false;
+	} finally {
+	    close(statement);
 	}
     }
 
@@ -170,7 +166,6 @@ public class JobsSQLite extends JobsDAO {
 	}
     }
 
-    @SuppressWarnings("resource")
     @Override
     public boolean addCollumn(String table, String collumn, String type) {
 	Statement statement;
@@ -182,15 +177,14 @@ public class JobsSQLite extends JobsDAO {
 	}
 	try {
 	    statement.executeQuery("ALTER TABLE `" + table + "` ADD `" + collumn + "` " + type);
-	    statement.close();
 	    return true;
 	} catch (SQLException e) {
-	    close(statement);
 	    return false;
+	} finally {
+	    close(statement);
 	}
     }
 
-    @SuppressWarnings("resource")
     @Override
     public boolean truncate(String table) {
 	Statement statement = null;
@@ -203,14 +197,14 @@ public class JobsSQLite extends JobsDAO {
 	    statement = getConnection().createStatement();
 	    query = "DELETE FROM `" + table + "`;";
 	    statement.executeQuery(query);
-	    statement.close();
 	    return true;
 	} catch (SQLException e) {
 	    if (!(e.getMessage().toLowerCase().contains("locking") || e.getMessage().toLowerCase().contains("locked")) &&
 		!e.toString().contains("not return ResultSet"))
 		Jobs.consoleMsg("&cError in wipeTable() query: " + e);
-	    close(statement);
 	    return false;
+	} finally {
+	    close(statement);
 	}
     }
 
@@ -226,13 +220,11 @@ public class JobsSQLite extends JobsDAO {
 	    statement = getConnection().createStatement();
 	    query = "DROP TABLE IF EXISTS `" + table + "`;";
 	    statement.executeQuery(query);
-	    statement.close();
 	    return true;
 	} catch (SQLException e) {
 	    if (!(e.getMessage().toLowerCase().contains("locking") || e.getMessage().toLowerCase().contains("locked")) &&
 		!e.toString().contains("not return ResultSet"))
 		Jobs.consoleMsg("&cError in dropTable() query: " + e);
-	    close(statement);
 	    return false;
 	} finally {
 	    close(statement);

@@ -12,6 +12,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.inventory.ItemStack;
 
 import com.gamingmesh.jobs.Jobs;
+import com.gamingmesh.jobs.CMILib.VersionChecker.Version;
 
 public class ItemReflection {
 
@@ -76,55 +77,8 @@ public class ItemReflection {
 	    Object res2 = secmeth.invoke(nmsStack);
 	    Object res = meth.invoke(reg, res2);
 	    return res.toString();
-	} catch (Exception e) {
+	} catch (Throwable e) {
 	    return null;
-	}
-    }
-
-    public static String getItemRealName(ItemStack item) {
-	try {
-	    Object nmsStack = asNMSCopy(item);
-	    Method itemMeth = Item.getMethod("getById", int.class);
-	    @SuppressWarnings("deprecation")
-		Object res = itemMeth.invoke(Item, item.getType().getId());
-
-	    String ff = "b";
-	    switch (Jobs.getVersionCheckManager().getVersion()) {
-	    case v1_10_R1:
-	    case v1_9_R1:
-	    case v1_9_R2:
-	    case v1_8_R1:
-	    case v1_8_R3:
-	    case v1_8_R2:
-		ff = "a";
-		break;
-	    case v1_11_R1:
-	    case v1_12_R1:
-		ff = "b";
-		break;
-	    case v1_13_R2:
-	    case v1_13_R1:
-	    case v1_14_R2:
-	    case v1_14_R1:
-	    case v1_15_R2:
-	    case v1_15_R1:
-		ff = "h";
-		break;
-	    case v1_7_R1:
-	    case v1_7_R2:
-	    case v1_7_R3:
-	    case v1_7_R4:
-		ff = "n";
-		break;
-	    default:
-		break;
-	    }
-
-	    Method meth2 = res.getClass().getMethod(ff, IStack);
-	    Object name = meth2.invoke(res, nmsStack);
-	    return name.toString();
-	} catch (Exception e) {
-	    return item != null ? item.getType().name() : "";
 	}
     }
 
@@ -133,11 +87,11 @@ public class ItemReflection {
 	    Object nmsStack = asNMSCopy(item);
 	    Method itemMeth = Item.getMethod("getById", int.class);
 	    @SuppressWarnings("deprecation")
-		Object res = itemMeth.invoke(Item, item.getType().getId());
+	    Object res = itemMeth.invoke(Item, item.getType().getId());
 	    Method nameThingy = Item.getMethod("j", IStack);
 	    Object resThingy = nameThingy.invoke(res, nmsStack);
 	    return resThingy.toString();
-	} catch (Exception e) {
+	} catch (Throwable e) {
 	    return null;
 	}
     }
@@ -146,7 +100,7 @@ public class ItemReflection {
 	try {
 	    Method meth = CraftItemStack.getMethod("asNMSCopy", ItemStack.class);
 	    return meth.invoke(CraftItemStack, item);
-	} catch (Exception e) {
+	} catch (Throwable e) {
 	    return null;
 	}
     }
@@ -155,7 +109,7 @@ public class ItemReflection {
 	try {
 	    Method meth = CraftItemStack.getMethod("asBukkitCopy", IStack);
 	    return meth.invoke(CraftItemStack, item);
-	} catch (Exception e) {
+	} catch (Throwable e) {
 	    return null;
 	}
     }
@@ -164,11 +118,11 @@ public class ItemReflection {
 	return CraftServer;
     }
 
-/*    public ItemStack getItemInOffHand(Player player) {
+    public static ItemStack getItemInOffHand(org.bukkit.entity.Player player) {
 	if (Jobs.getVersionCheckManager().getVersion().isLower(Version.v1_9_R1))
 	    return null;
 	return player.getInventory().getItemInOffHand();
-    }*/
+    }
 
     public void setEndermiteActive(Entity ent, boolean state) {
 

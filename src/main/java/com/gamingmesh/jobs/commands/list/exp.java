@@ -24,56 +24,45 @@ public class exp implements Cmd {
 	    return true;
 	}
 
-	Action action = Action.Add;
-	int amount = 0;
-	String playerName = null;
-	Job job = null;
-
-	for (String one : args) {
-	    switch (one.toLowerCase()) {
-	    case "add":
-		action = Action.Add;
-		continue;
-	    case "set":
-		action = Action.Set;
-		continue;
-	    case "take":
-		action = Action.Take;
-		continue;
-	    }
-
-	    try {
-		amount = Integer.parseInt(one);
-		continue;
-	    } catch (NumberFormatException e) {
-	    }
-
-	    if (job == null && Jobs.getJob(one) != null) {
-		job = Jobs.getJob(one);
-		continue;
-	    }
-	    playerName = one;
-	}
-
-	if (playerName == null)
-	    return false;
-
-	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(playerName);
-
+	JobsPlayer jPlayer = Jobs.getPlayerManager().getJobsPlayer(args[0]);
 	if (jPlayer == null) {
 	    sender.sendMessage(Jobs.getLanguage().getMessage("general.error.noinfoByPlayer", "%playername%", args[0]));
 	    return true;
 	}
 
+	Job job = Jobs.getJob(args[1]);
 	if (job == null) {
 	    sender.sendMessage(Jobs.getLanguage().getMessage("general.error.job"));
+	    return true;
+	}
+
+	Action action = Action.Add;
+
+	switch (args[2].toLowerCase()) {
+	    case "add":
+		action = Action.Add;
+		break;
+	    case "set":
+		action = Action.Set;
+		break;
+	    case "take":
+		action = Action.Take;
+		break;
+	    default:
+		break;
+	}
+
+	double amount = 0.0;
+	try {
+	    amount = Double.parseDouble(args[3]);
+	} catch (Throwable e) {
+	    sender.sendMessage(Jobs.getLanguage().getMessage("general.admin.error"));
 	    return true;
 	}
 
 	try {
 	    // check if player already has the job
 	    if (jPlayer.isInJob(job)) {
-
 		JobProgression prog = jPlayer.getJobProgression(job);
 		switch (action) {
 		case Add:
@@ -85,16 +74,18 @@ public class exp implements Cmd {
 		case Take:
 		    prog.takeExperience(amount);
 		    break;
+		default:
+		    break;
 		}
 
 		Player player = jPlayer.getPlayer();
-		if (player != null) {
+		if (player != null)
 		    player.sendMessage(Jobs.getLanguage().getMessage("command.exp.output.target", "%jobname%", job.getChatColor() + job.getName(), "%level%", prog.getLevel(), "%exp%", prog.getExperience()));
-		}
 
 		sender.sendMessage(Jobs.getLanguage().getMessage("general.admin.success"));
-	    }
-	} catch (Exception e) {
+	    } else
+			sender.sendMessage(Jobs.getLanguage().getMessage("command.exp.error.nojob"));
+	} catch (Throwable e) {
 	    sender.sendMessage(Jobs.getLanguage().getMessage("general.admin.error"));
 	}
 	return true;
