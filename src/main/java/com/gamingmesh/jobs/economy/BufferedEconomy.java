@@ -141,8 +141,13 @@ public class BufferedEconomy {
 		this.ServerTaxesAccount = Bukkit.getOfflinePlayer(ServerTaxesAccountname);
 
 	    if (Jobs.getGCManager().UseTaxes && Jobs.getGCManager().TransferToServerAccount && ServerTaxesAccount != null) {
-		if (TaxesAmount > 0)
-		    economy.depositPlayer(ServerTaxesAccount, TaxesAmount);
+		if (TaxesAmount > 0) {
+			try {
+				economy.depositPlayer(ServerTaxesAccount, TaxesAmount);
+			} catch (NullPointerException e) {
+				Jobs.consoleMsg("&e[Jobs] Server tax account do not exists!");
+			}
+		}
 
 		if (ServerTaxesAccount.isOnline()) {
 		    if (!ToggleBarHandling.getActionBarToggle().containsKey(ServerTaxesAccountname) && Jobs.getGCManager().ActionBarsMessageByDefault)
